@@ -1,0 +1,13 @@
+{
+	"name": "searcher",
+	"description": "Advanced text search",
+	"version": "0.3",
+
+	"manifest_version": 2,
+	"content_scripts": [{
+		"js": ["autocomplete.js", "search.js"],
+		"css": ["main.css"],
+		"matches": ["<all_urls>"],
+		"run_at": "document_end"
+	}]
+}
