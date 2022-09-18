@@ -1,0 +1,354 @@
+.marks {
+	visibility: visible;
+	background-color: mediumseagreen;
+	opacity: 0.7;
+}
+
+#inputSearch {
+	width: 240px;
+	height: 30px;
+	box-shadow: 5px 5px 5px lightgrey;
+	background-color: rgba(0, 0, 0, 0.1);
+	z-index: 100;
+	position: fixed;
+	top: 70px;
+	left: 50px;
+	border: none;
+	font-family: Helvetica;
+	font-weight: lighter;
+	font-size: 17px;
+	visibility: hidden;
+	animation-duration: 1s;
+}
+
+#inputSearch2 {
+	width: 240px;
+	height: 30px;
+	box-shadow: 5px 5px 5px lightgrey;
+	background-color: rgba(0, 0, 0, 0.1);
+	z-index: 99;
+	position: fixed;
+	top: 70px;
+	left: 300px;
+	border: none;
+	font-family: Helvetica;
+	font-weight: lighter;
+	font-size: 17px;
+	visibility: hidden;
+	animation-duration: 1s;
+}
+
+input {
+    border-top-style: hidden;
+    border-right-style: hidden;
+    border-left-style: hidden;
+    background-color: white;
+    backdrop-filter: blur(3px);
+}
+
+#inputSearch:focus, #inputSearch2:focus {
+	outline: none;
+}
+
+#groove {
+	width: 244px;
+	height: 5px;
+	position: fixed;
+	top: 102px;
+	left: 50px;
+	background-color: black;
+	visibility: hidden;
+	box-shadow: 5px 5px 5px lightgrey;
+	z-index: 101;
+	animation-duration: 1s;
+}
+
+#groove2 {
+	width: 244px;
+	height: 5px;
+	position: fixed;
+	top: 102px;
+	left: 300px;
+	background-color: black;
+	visibility: hidden;
+	box-shadow: 5px 5px 5px lightgrey;
+	z-index: 100;
+	animation-duration: 1s;
+}
+
+#advancedButton {
+	position: fixed;
+	top: 115px;
+	left: 50px;
+}
+
+#grooveAdvBtn {
+	position: fixed;
+	top: 135px;
+	left: 50px;
+}
+
+#wordDistBtn {
+	position: fixed;
+	top: 115px;
+	left: 175px;
+	z-index: 102;
+}
+
+#grWordDist {
+	position: fixed;
+	top: 135px;
+	left: 175px;
+	z-index: 103;
+}
+
+#regexBtn {
+	position: fixed;
+	top: 143px;
+	left: 175px;
+	z-index: 101;
+}
+
+#grRegex {
+	position: fixed;
+	top: 163px;
+	left: 175px;
+	z-index: 102;
+}
+
+#otherBtn {
+	position: fixed;
+	top: 171px;
+	left: 175px;
+}
+
+#grOther {
+	position: fixed;
+	top: 191px;
+	left: 175px;
+}
+
+#searchBtn {
+	position: fixed;
+	top: 70px;
+	left: 255px;
+}
+
+#result {
+	width: 240px;
+	height: 30px;
+	box-shadow: 5px 5px 5px lightgrey;
+	background-color: rgba(0, 0, 0, 0.05);
+	z-index: 100;
+	position: fixed;
+	top: 70px;
+	left: 420px;
+	border: none;
+	font-family: Helvetica;
+	font-weight: lighter;
+	font-size: 17px;
+	visibility: hidden;
+	animation-duration: 1s;
+}
+
+#other1 {
+	position: fixed;
+	top: 170px;
+	left: 300px;
+}
+
+#other2 {
+	position: fixed;
+	top: 200px;
+	left: 300px;
+}
+
+.optionBtns {
+	width: 120px;
+	height: 25px;	
+	visibility: hidden;
+	border: none;
+	outline: none;
+	font-family: Helvetica;
+	font-weight: lighter;
+	background-color: rgba(255, 255, 255, 0.9);
+	animation-duration: 1s;
+	z-index: 100;
+}
+
+.optionBtns:hover {
+	background-color: rgba(255, 255, 255, 1);
+}
+
+.groove {
+	width: 120px;
+	height: 5px;
+	background-color: black;
+	visibility: hidden;
+	box-shadow: 5px 5px 5px lightgrey;
+	z-index: 101;
+	visibility: hidden;
+	animation-duration: 1s;
+}
+
+#searchResults {
+	/* z-index: 10; */
+	width: 90%;
+	height: 90%;
+	overflow-y: auto;
+	position: absolute;
+	left: 5%;
+	top: 5%;
+	background-color: white;
+	opacity: 0.9;
+	box-shadow: 3px 3px 3px darkgrey;
+}
+
+#resultsDropdownBtn {
+	position: fixed;
+	top: 70px;
+	left: 300px;
+	width: 40px;
+	height: 37px;
+	background-color: rgba(0, 0, 0, 0.1) !important;
+	animation-duration: 1s;
+	visibility: hidden;
+}
+#grResultsDropdownBtn {
+	position: fixed;
+	top: 102px;
+	left: 300px;
+	width: 40px;
+	animation-duration: 1s;
+	visibility: hidden;
+}
+
+#result1, #result2, #result3 {
+	width: 250px;
+	height: 40px;
+	z-index: 30;
+	box-shadow: 5px 5px 5px lightgrey;
+	padding: 7px;
+}
+
+#result1 {
+	position: fixed;
+	top: 75px;
+	left: 310px;
+}
+
+#result2 {
+	position: fixed;
+	top: 135px;
+	left: 310px;
+}
+
+#result3 {
+	position: fixed;
+	top: 195px;
+	left: 310px;
+}
+
+#regexBox {
+	position: fixed;
+	top: 70px;
+	left: 350px;
+	width: 250px;
+	height: auto;
+	padding: 5px;
+	background-color: white;
+	box-shadow: 5px 5px 5px lightgrey;
+	visibility: hidden;
+	z-index: 31;
+}
+
+#noResultsBox {
+	position: fixed;
+	top: 70px;
+	left: 300px;
+	width: 240px;
+	height: 30px;
+	padding-left: 7px;
+	background-color: white;
+	box-shadow: 5px 5px 5px lightgrey;
+	visibility: hidden;
+	z-index: 31;
+}
+
+@keyframes appearSearch {
+	from {left: 0px;}
+	to {left: 50px;}
+}
+
+@keyframes disappearSearch {
+	from {left: 50px;}
+	to {left: -300px;}
+}
+
+@keyframes appearFirstOption {
+	from {left: 50px;}
+	to {left: 175px;}
+}
+
+@keyframes dropSecondOption {
+	from {top: 115px;}
+	to {top: 143px;}
+}
+
+@keyframes dropThirdOption {
+	from {top: 141px;}
+	to {top: 171px;}
+}
+
+@keyframes dropSecondOptionGroove {
+	from {top: 143px;}
+	to {top: 163px;}
+}
+
+@keyframes dropThirdOptionGroove {
+	from {top: 171px;}
+	to {top: 191px;}
+}
+
+@keyframes appearSecondInput {
+	from {left: 50px;}
+	to {left: 300px;}
+}
+
+@keyframes showResultsOption {
+	from {opacity: 0;}
+	to {opacity: 1;}
+}
+
+
+/* ------------------------------------------- Autcomplete CSS -------------------------------------------- */
+
+
+.autocomplete {
+    background: white;
+    z-index: 1000;
+    font: 14px/22px "-apple-system", BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overflow: auto;
+    box-sizing: border-box;
+    border: 1px solid rgba(50, 50, 50, 0.6);
+    opacity: 0.8;
+	position: static;
+}
+
+.autocomplete * {
+    font: inherit;
+}
+
+.autocomplete > div {
+    padding: 0 4px;
+}
+
+.autocomplete .group {
+    background: #eee;
+}
+
+.autocomplete > div:hover:not(.group),
+.autocomplete > div.selected {
+    background: #81ca91;
+    cursor: pointer;
+}
