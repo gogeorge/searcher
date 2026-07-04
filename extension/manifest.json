@@ -1,0 +1,22 @@
+{
+	"manifest_version": 3,
+	"name": "ctrlFACK — Advanced Find",
+	"description": "Advanced in-page text search: find, word distance, regex and word size. Open with Ctrl+Z.",
+	"version": "0.3",
+
+	"content_scripts": [
+		{
+			"js": ["autocomplete.js", "search.js"],
+			"css": ["main.css"],
+			"matches": ["<all_urls>"],
+			"run_at": "document_end"
+		}
+	],
+
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "ctrlfack@grvaltas",
+			"strict_min_version": "109.0"
+		}
+	}
+}

@@ -1,0 +1,345 @@
+/* =====================================================================
+   ctrlFACK — Liquid Glass theme
+   ---------------------------------------------------------------------
+   GPU-conscious glassmorphism:
+   - backdrop-filter is used ONLY on the few panels/inputs below, never
+     on the (potentially hundreds of) inline .marks highlights, and it
+     is never animated.
+   - One shared blur recipe (--cf-blur) so the compositor can reuse it.
+   - The "glass edge" is faked with a cheap border + inset highlight
+     instead of expensive SVG displacement/refraction filters.
+   Layout, IDs, positions, z-index, visibility states and @keyframes are
+   preserved exactly as search.js expects them — only looks changed.
+   ===================================================================== */
+
+:root {
+	--cf-glass:        rgba(255, 255, 255, 0.42);
+	--cf-glass-strong: rgba(255, 255, 255, 0.66);
+	--cf-border:       rgba(255, 255, 255, 0.55);
+	--cf-blur:         blur(12px) saturate(180%);
+	--cf-blur-light:   blur(6px) saturate(160%);
+	--cf-shadow:       0 8px 30px rgba(15, 23, 42, 0.18);
+	--cf-inset:        inset 0 1px 0 rgba(255, 255, 255, 0.75);
+	--cf-text:         #1f2733;
+	--cf-accent:       rgba(56, 189, 248, 0.85);
+	--cf-radius:       14px;
+	--cf-font:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+	                   "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* ---- inline search highlights (cheap, no blur — there can be many) ---- */
+.marks {
+	visibility: visible;
+	background-color: rgba(52, 211, 153, 0.4);
+	box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.35);
+	border-radius: 3px;
+	color: inherit;
+}
+
+/* ------------------------------ inputs ------------------------------ */
+#inputSearch,
+#inputSearch2 {
+	width: 240px;
+	height: 30px;
+	z-index: 100;
+	position: fixed;
+	top: 70px;
+	border: 1px solid var(--cf-border) !important;
+	border-radius: var(--cf-radius) !important;
+	padding: 0 14px !important;
+	box-sizing: border-box !important;
+	background: var(--cf-glass) !important;
+	-webkit-backdrop-filter: var(--cf-blur);
+	backdrop-filter: var(--cf-blur);
+	box-shadow: var(--cf-shadow), var(--cf-inset) !important;
+	color: var(--cf-text) !important;
+	font-family: var(--cf-font);
+	font-weight: 400;
+	font-size: 16px;
+	visibility: hidden;
+	animation-duration: 1s;
+	transition: box-shadow 0.25s ease, background 0.25s ease;
+}
+
+#inputSearch  { left: 50px; }
+#inputSearch2 { left: 300px; z-index: 99; }
+
+#inputSearch::placeholder,
+#inputSearch2::placeholder {
+	color: rgba(31, 39, 51, 0.55);
+}
+
+#inputSearch:focus,
+#inputSearch2:focus {
+	outline: none;
+	background: var(--cf-glass-strong) !important;
+	box-shadow: var(--cf-shadow), var(--cf-inset),
+	            0 0 0 3px rgba(56, 189, 248, 0.35) !important;
+}
+
+/* ----------------------- accent underglow (grooves) -----------------------
+   Not a separate bar: each groove hugs the bottom edge of its component and
+   blooms softly upward, so it reads as a blue "hint" the component casts. */
+#groove,
+#groove2 {
+	width: 240px;
+	height: 2px;
+	position: fixed;
+	top: 98px;                 /* input bottom is 100px — straddle that edge */
+	border-radius: 2px;
+	background: linear-gradient(90deg, transparent,
+	            var(--cf-accent) 35%, var(--cf-accent) 65%, transparent);
+	box-shadow: 0 0 12px 1px rgba(56, 189, 248, 0.4);
+	opacity: 0.85;
+	visibility: hidden;
+	z-index: 101;
+	animation-duration: 1s;
+}
+#groove  { left: 50px; }
+#groove2 { left: 300px; z-index: 100; }
+
+.groove {
+	width: 120px;
+	height: 2px;
+	border-radius: 2px;
+	background: linear-gradient(90deg, transparent,
+	            var(--cf-accent) 35%, var(--cf-accent) 65%, transparent);
+	box-shadow: 0 0 10px 1px rgba(56, 189, 248, 0.38);
+	opacity: 0.85;
+	visibility: hidden;
+	z-index: 101;
+	animation-duration: 1s;
+}
+
+/* ------------------------- option buttons ------------------------- */
+.optionBtns {
+	width: 120px;
+	height: 26px;
+	visibility: hidden;
+	border: 1px solid var(--cf-border);
+	border-radius: 10px;
+	outline: none;
+	font-family: var(--cf-font);
+	font-weight: 500;
+	font-size: 13px;
+	color: var(--cf-text);
+	background: var(--cf-glass);
+	-webkit-backdrop-filter: var(--cf-blur-light);
+	backdrop-filter: var(--cf-blur-light);
+	box-shadow: var(--cf-shadow), var(--cf-inset);
+	animation-duration: 1s;
+	z-index: 100;
+	cursor: pointer;
+	transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.optionBtns:hover {
+	background: var(--cf-glass-strong);
+}
+
+.optionBtns:active {
+	transform: translateY(1px);
+}
+
+#advancedButton { position: fixed; top: 115px; left: 50px; }
+#grooveAdvBtn   { position: fixed; top: 137px; left: 50px; }
+
+#wordDistBtn { position: fixed; top: 115px; left: 175px; z-index: 102; }
+#grWordDist  { position: fixed; top: 137px; left: 175px; z-index: 103; }
+
+#regexBtn { position: fixed; top: 143px; left: 175px; z-index: 101; }
+#grRegex  { position: fixed; top: 165px; left: 175px; z-index: 102; }
+
+#otherBtn { position: fixed; top: 171px; left: 175px; }
+#grOther  { position: fixed; top: 193px; left: 175px; }
+
+#searchBtn { position: fixed; top: 70px; left: 255px; }
+
+#other1 { position: fixed; top: 170px; left: 300px; }
+#other2 { position: fixed; top: 200px; left: 300px; }
+
+/* --------------------- occurrence dropdown button --------------------- */
+#resultsDropdownBtn {
+	position: fixed;
+	top: 70px;
+	left: 300px;
+	width: 40px;
+	height: 32px;
+	border-radius: 12px;
+	background: var(--cf-glass) !important;
+	-webkit-backdrop-filter: var(--cf-blur-light);
+	backdrop-filter: var(--cf-blur-light);
+	animation-duration: 1s;
+	visibility: hidden;
+}
+#grResultsDropdownBtn {
+	position: fixed;
+	top: 100px;
+	left: 300px;
+	width: 40px;
+	animation-duration: 1s;
+	visibility: hidden;
+}
+
+/* ---------------------- occurrence preview cards ---------------------- */
+#result1,
+#result2,
+#result3 {
+	width: 250px;
+	height: 40px;
+	z-index: 30;
+	border-radius: var(--cf-radius);
+	box-shadow: var(--cf-shadow), var(--cf-inset);
+	padding: 8px 12px;
+	overflow: hidden;
+	line-height: 1.3;
+}
+#result1 { position: fixed; top: 75px;  left: 310px; }
+#result2 { position: fixed; top: 135px; left: 310px; }
+#result3 { position: fixed; top: 195px; left: 310px; }
+
+/* --------------------------- results overlay --------------------------- */
+/* The page <body> is already blurred by search.js (filter: blur), so only
+   a light backdrop blur is layered here to keep the GPU cost down.        */
+#searchResults {
+	width: 90%;
+	height: 90%;
+	overflow-y: auto;
+	position: absolute;
+	left: 5%;
+	top: 5%;
+	padding: 28px;
+	box-sizing: border-box;
+	color: var(--cf-text);
+	background: var(--cf-glass-strong);
+	-webkit-backdrop-filter: var(--cf-blur-light);
+	backdrop-filter: var(--cf-blur-light);
+	border: 1px solid var(--cf-border);
+	border-radius: 22px;
+	box-shadow: 0 20px 60px rgba(15, 23, 42, 0.28), var(--cf-inset);
+	scrollbar-width: thin;
+	scrollbar-color: rgba(56, 189, 248, 0.6) transparent;
+}
+#searchResults::-webkit-scrollbar { width: 10px; }
+#searchResults::-webkit-scrollbar-thumb {
+	background: rgba(56, 189, 248, 0.5);
+	border-radius: 8px;
+	border: 2px solid transparent;
+	background-clip: content-box;
+}
+
+/* ----------------------------- info boxes ----------------------------- */
+#regexBox {
+	position: fixed;
+	top: 70px;
+	left: 350px;
+	width: 250px;
+	height: auto;
+	padding: 14px 16px;
+	color: var(--cf-text);
+	font-family: var(--cf-font);
+	background: var(--cf-glass-strong);
+	-webkit-backdrop-filter: var(--cf-blur);
+	backdrop-filter: var(--cf-blur);
+	border: 1px solid var(--cf-border);
+	border-radius: var(--cf-radius);
+	box-shadow: var(--cf-shadow), var(--cf-inset);
+	visibility: hidden;
+	z-index: 31;
+}
+
+#noResultsBox {
+	position: fixed;
+	top: 70px;
+	left: 300px;
+	width: 240px;
+	height: 30px;
+	display: flex;
+	align-items: center;
+	padding-left: 14px;
+	color: var(--cf-text);
+	font-family: var(--cf-font);
+	font-size: 14px;
+	background: var(--cf-glass-strong);
+	-webkit-backdrop-filter: var(--cf-blur);
+	backdrop-filter: var(--cf-blur);
+	border: 1px solid var(--cf-border);
+	border-radius: var(--cf-radius);
+	box-shadow: var(--cf-shadow), var(--cf-inset);
+	visibility: hidden;
+	z-index: 31;
+}
+
+/* ------------------------------ keyframes ------------------------------ */
+/* Unchanged — search.js drives these by name. */
+@keyframes appearSearch {
+	from { left: 0px; }
+	to   { left: 50px; }
+}
+@keyframes disappearSearch {
+	from { left: 50px; }
+	to   { left: -300px; }
+}
+@keyframes appearFirstOption {
+	from { left: 50px; }
+	to   { left: 175px; }
+}
+@keyframes dropSecondOption {
+	from { top: 115px; }
+	to   { top: 143px; }
+}
+@keyframes dropThirdOption {
+	from { top: 141px; }
+	to   { top: 171px; }
+}
+@keyframes dropSecondOptionGroove {
+	from { top: 143px; }
+	to   { top: 165px; }
+}
+@keyframes dropThirdOptionGroove {
+	from { top: 171px; }
+	to   { top: 193px; }
+}
+@keyframes appearSecondInput {
+	from { left: 50px; }
+	to   { left: 300px; }
+}
+@keyframes showResultsOption {
+	from { opacity: 0; }
+	to   { opacity: 1; }
+}
+
+/* --------------------------- autocomplete --------------------------- */
+.autocomplete {
+	z-index: 1000;
+	font: 14px/22px var(--cf-font);
+	color: var(--cf-text);
+	overflow: auto;
+	box-sizing: border-box;
+	background: var(--cf-glass-strong);
+	-webkit-backdrop-filter: var(--cf-blur);
+	backdrop-filter: var(--cf-blur);
+	border: 1px solid var(--cf-border);
+	border-radius: 12px;
+	box-shadow: var(--cf-shadow), var(--cf-inset);
+	position: static;
+}
+
+.autocomplete * {
+	font: inherit;
+}
+
+.autocomplete > div {
+	padding: 4px 10px;
+}
+
+.autocomplete .group {
+	background: rgba(255, 255, 255, 0.35);
+}
+
+.autocomplete > div:hover:not(.group),
+.autocomplete > div.selected {
+	background: rgba(52, 211, 153, 0.35);
+	border-radius: 8px;
+	cursor: pointer;
+}

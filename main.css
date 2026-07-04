@@ -1,0 +1,16 @@
+div.editable {
+    width: 300px;
+    height: 200px;
+    border: 1px solid #ccc;
+    padding: 5px;
+}
+
+.marks {
+	visibility: visible;
+	background-color: mediumseagreen;
+	opacity: 0.7;
+}
+
+#prevBtn, #nextBtn { 
+	visibility: hidden;
+}
