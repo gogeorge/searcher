@@ -1,743 +1,489 @@
-////////////////////////////// Document Elements //////////////////////////////
+/* ============================================================================
+   ctrlFACK — content script
+   ----------------------------------------------------------------------------
+   Core design (v0.4):
+   1. Match navigation + live counter  (Enter / Shift+Enter, ‹ ›, "n / total")
+   2. Highlighting happens on the LIVE page via DOM range wrapping (no more
+      cloning innerHTML into a blurred overlay) — the page stays interactive
+      and works with dynamic content. Robust across Chrome & Firefox.
+   3. Opened via the browser command (see background.js), not Ctrl+Z. Esc closes.
+   ========================================================================== */
 
-// input
-var inputElement = document.createElement("INPUT")
-inputElement.setAttribute("id", "inputSearch")
-inputElement.setAttribute("autocomplete", "off")
-document.documentElement.appendChild(inputElement)
+(function () {
+"use strict";
 
-// the line under the input
-var grooveElement = document.createElement('DIV')
-grooveElement.setAttribute('id', 'groove')
-document.documentElement.appendChild(grooveElement)
+if (window.__ctrlfackInjected) return;      // guard against double injection
+window.__ctrlfackInjected = true;
 
-// button for advanced options
-var advancedButton = document.createElement("BUTTON")
-advancedButton.setAttribute("id", "advancedButton")
-advancedButton.setAttribute("class", "optionBtns")
-document.documentElement.appendChild(advancedButton)
-advancedButton.innerHTML = 'Advanced'
+var MARK_CLASS   = "ctrlfack-mark";
+var ACTIVE_CLASS = "ctrlfack-mark-active";
+var MATCH_CAP    = 5000;                     // safety limit on huge pages
 
-// groove for advanced button
-var grAdvBtnElement = document.createElement('DIV')
-grAdvBtnElement.setAttribute('id', 'grooveAdvBtn')
-grAdvBtnElement.setAttribute('class', 'groove')
-document.documentElement.appendChild(grAdvBtnElement)
+/* ------------------------------------------------------------------ state */
+var matches = [];        // array of <mark> elements, in document order
+var activeIndex = -1;
+var lastQuery = null;    // last "Find:" query, to tell "new search" from "next"
+var uiOpen = false;
+var wordSuggestions = [];
 
-var wordDistBtn = document.createElement('BUTTON')
-wordDistBtn.setAttribute('id', 'wordDistBtn')
-wordDistBtn.setAttribute("class", "optionBtns")
-document.documentElement.appendChild(wordDistBtn)
-wordDistBtn.innerHTML = 'Word Distance'
+/* ============================================================ UI ELEMENTS */
 
-var grWordDist = document.createElement('DIV')
-grWordDist.setAttribute('id', 'grWordDist')
-grWordDist.setAttribute('class', 'groove')
-document.documentElement.appendChild(grWordDist)
-
-var wordDistInput = document.createElement('INPUT')
-wordDistInput.setAttribute('id', 'inputSearch2')
-wordDistInput.setAttribute('autocomplete' , 'off')
-document.documentElement.appendChild(wordDistInput)
-
-var grooveElement2 = document.createElement('DIV')
-grooveElement2.setAttribute('id', 'groove2')
-document.documentElement.appendChild(grooveElement2)
-
-var regexBtn = document.createElement('BUTTON')
-regexBtn.setAttribute('id', 'regexBtn')
-regexBtn.setAttribute("class", "optionBtns")
-document.documentElement.appendChild(regexBtn)
-regexBtn.innerHTML = 'RegExp'
-
-var grRegex = document.createElement('DIV')
-grRegex.setAttribute('id', 'grRegex')
-grRegex.setAttribute('class', 'groove')
-document.documentElement.appendChild(grRegex)
-
-var otherBtn = document.createElement('BUTTON')
-otherBtn.setAttribute('id', 'otherBtn')
-otherBtn.setAttribute("class", "optionBtns")
-document.documentElement.appendChild(otherBtn)
-otherBtn.innerHTML = 'Other'
-
-var grOther = document.createElement('DIV')
-grOther.setAttribute('id', 'grOther')
-grOther.setAttribute('class', 'groove')
-document.documentElement.appendChild(grOther)
-
-// other button list
-var other1 = document.createElement('BUTTON')
-other1.setAttribute('id', 'other1')
-other1.setAttribute('class', 'optionBtns')
-document.documentElement.appendChild(other1)
-other1.innerHTML = 'Word Size'
-
-var other2 = document.createElement('BUTTON')
-other2.setAttribute('id', 'other2')
-other2.setAttribute('class', 'optionBtns')
-document.documentElement.appendChild(other2)
-other2.innerHTML = 'Find Email'
-
-var resultsWin = document.createElement('DIV')
-resultsWin.setAttribute('id', 'searchResults')
-resultsWin.setAttribute('hidden', '')
-document.documentElement.appendChild(resultsWin)
-
-// visual occurences
-var resultsDropdownBtn = document.createElement("BUTTON")
-resultsDropdownBtn.setAttribute("id", "resultsDropdownBtn")
-resultsDropdownBtn.setAttribute("class", "optionBtns")
-document.documentElement.appendChild(resultsDropdownBtn)
-resultsDropdownBtn.innerHTML = '...'
-
-// dropdown btn groove
-var grResultsDropdownBtn = document.createElement('DIV')
-grResultsDropdownBtn.setAttribute('id', 'grResultsDropdownBtn')
-grResultsDropdownBtn.setAttribute('class', 'groove')
-document.documentElement.appendChild(grResultsDropdownBtn)
-
-var result1 = document.createElement('DIV')
-result1.setAttribute('id', 'result1')
-result1.setAttribute("class", "optionBtns")
-document.documentElement.appendChild(result1)
-
-var result2 = document.createElement('DIV')
-result2.setAttribute('id', 'result2')
-result2.setAttribute("class", "optionBtns")
-document.documentElement.appendChild(result2)
-
-var result3 = document.createElement('DIV')
-result3.setAttribute('id', 'result3')
-result3.setAttribute("class", "optionBtns")
-document.documentElement.appendChild(result3)
-// result1.innerHTML = 
-
-// regex box
-var regexBox = document.createElement('DIV')
-regexBox.setAttribute('id', 'regexBox')
-document.documentElement.appendChild(regexBox)
-
-var noResultsBox = document.createElement('DIV')
-noResultsBox.setAttribute('id', 'noResultsBox')
-document.documentElement.appendChild(noResultsBox)
-noResultsBox.innerHTML = 'No results found'
-
-// variables
-var	textTag = document.body.innerHTML
-	textArray = textTag.split('')
-	inputTag = document.getElementById('inputSearch')
-	searchResults = document.getElementById('searchResults')
-	groove = document.getElementById('groove')
-	resultsDropdownBtn = document.getElementById('resultsDropdownBtn')
-	grResultsDropdownBtn = document.getElementById('grResultsDropdownBtn')
-	regexBox = document.getElementById('regexBox')
-	noResultsBox = document.getElementById('noResultsBox')
-	wordDistPressed = ''
-	regexPressed = ''
-
-inputTag.setAttribute('placeholder', 'Find:')
-
-////////////////////////////// listen for Enter key being pressed //////////////////////////////
-inputTag.addEventListener('keyup', function(e) {
-	input = inputTag.value
-	e.preventDefault()
-	if (e.keyCode == 13) {
-		scroll(0,0)
-		document.body.style.overflowY = 'hidden'
-		// advancedButton.style.visibility = 'visible'
-		// grAdvBtnElement.style.visibility = 'visible'		
-		// wordDistBtn.style.visibility = 'visible'
-		// grWordDist.style.visibility = 'visible'
-		// regexBtn.style.visibility = 'visible'
-		// grRegex.style.visibility = 'visible'
-		// otherBtn.style.visibility = 'visible'
-		// grOther.style.visibility = 'visible'
-		if (inputTag.getAttribute('placeholder') == 'WD:') {
-			wordDistance(inputTag.value, wordDistInput.value)
-			wordDistPressed = 'false'
-		}
-		else if (inputTag.getAttribute('placeholder') == 'RegExp:') {
-			regex(textTag, input)
-			regexPressed = 'false'
-			console.log('regexp pass')
-		}
-		else if (inputTag.getAttribute('placeholder') == 'WS:') {
-			wordSize(input)
-		}
-		else if (inputTag.getAttribute('placeholder') == 'Find:') {
-			resultsDropdownBtn.style.visibility = 'visible'
-			grResultsDropdownBtn.style.visibility = 'visible'
-			resultsDropdownBtn.style.animationName = 'showResultsOption'
-			grResultsDropdownBtn.style.animationName = 'showResultsOption'
-			noResultsBox.style.visibility = 'hidden'
-	 		find(input)
-		}
-	}
-
-	else if (e.keyCode == 9) {
-		console.log('tab')
-		wordDistInput.focus()
-		wordDistInput.select()
-	}
-	else if (e.keyCode == 8 && noResultsBox.style.visibility == 'visible') {
-		noResultsBox.style.visibility = 'hidden'
-	} 
-	// if (!(e.key == 'z' && e.ctrlKey) || !e.keyCode == 13) {
-	// 	advancedButton.style.visibility = 'hidden'
-	// 	grAdvBtnElement.style.visibility = 'hidden'		
-	// 	wordDistBtn.style.visibility = 'hidden'
-	// 	grWordDist.style.visibility = 'hidden'
-	// 	regexBtn.style.visibility = 'hidden'
-	// 	grRegex.style.visibility = 'hidden'
-	// 	otherBtn.style.visibility = 'hidden'
-	// 	grOther.style.visibility = 'hidden'
-	// }
- // 	else {
- // 		console.log('pass')
- // 		if (wordDistInput.style.visibility == 'visible') {
- // 			console.log('pass 1')
-	// 		wordDistance(inputTag.value, wordDistInput.value)
- // 		} else {
- //  			console.log('pass 2')
- // 			noResultsBox.style.visibility = 'hidden'
- // 			// find(input)
- // 		}
-	// }
-	return false
-})
-
-////////////////////////////// if Enter key is presed and there are two input (for word distance) //////////////////////////////
-wordDistInput.addEventListener('keyup', function(e) {
-	if (e.keyCode == 13 && wordDistInput.value != null) {
-		wordDistance(inputTag.value, wordDistInput.value)
-	}
-	return false
-})
-
-////////////////////////////// crtl+z to show the interface //////////////////////////////
-function visibility(e) {
-	if (e.key == 'z' && e.ctrlKey && (pressed == undefined || pressed == false)) {
-		inputTag.style.visibility = 'visible'
-		inputTag.style.animationName = 'appearSearch'
-		inputTag.focus()
-		inputTag.select()
-		groove.style.visibility = 'visible'
-		groove.style.animationName = 'appearSearch'
-		advancedButton.style.visibility = 'visible'
-		advancedButton.style.animationName = 'appearSearch'
-		grAdvBtnElement.style.visibility = 'visible'
-		grAdvBtnElement.style.animationName = 'appearSearch'
-		pressed = true
-		timestamp = (new Date()).getTime()
-	}
-
-	// hide the interface is crtl+z is pressed again
-	if (e.key == 'z' && e.ctrlKey && pressed) {
-		var now = (new Date()).getTime()
-			diff = now - timestamp
-		if (diff > 400) {
-			wordDistBtn.style.visibility = 'hidden'
-			grWordDist.style.visibility = 'hidden'
-			regexBtn.style.visibility = 'hidden'
-			grRegex.style.visibility = 'hidden'
-			otherBtn.style.visibility = 'hidden'
-			grOther.style.visibility = 'hidden'
-			wordDistInput.style.visibility = 'hidden'
-			groove2.style.visibility = 'hidden'
-			resultsDropdownBtn.style.visibility = 'hidden'
-			grResultsDropdownBtn.style.visibility = 'hidden'
-			regexBox.style.visibility = 'hidden'
-			inputTag.style.animationName = 'disappearSearch'
-			groove.style.animationName = 'disappearSearch'
-			advancedButton.style.animationName = 'disappearSearch'
-			grAdvBtnElement.style.animationName = 'disappearSearch'
-			setTimeout(function() {
-				inputTag.style.visibility = 'hidden'
-				groove.style.visibility = 'hidden'
-				advancedButton.style.visibility = 'hidden'
-				grAdvBtnElement.style.visibility = 'hidden'
-			}, 1000)
-			pressed = false
-		}
-	} 
+function el(tag, id, cls) {
+	var e = document.createElement(tag);
+	if (id) e.id = id;
+	if (cls) e.className = cls;
+	document.documentElement.appendChild(e);
+	return e;
 }
 
-function resetAnimation(id) {
-	var el = document.getElementById(id);
-	el.style.animation = 'none';
-	el.offsetHeight; /* trigger reflow */
-	el.style.animation = null; 
-  }
+// primary search input
+var input = el("INPUT", "inputSearch");
+input.setAttribute("autocomplete", "off");
+input.setAttribute("placeholder", "Find:");
 
-var pressed, timestamp
-inputTag.addEventListener('keyup', function(e) {
-	visibility(e)
-})
+var groove = el("DIV", "groove");
 
-document.body.addEventListener('keyup', function(e) {
-	visibility(e)
-})
+// Advanced button + its underline
+var advancedButton = el("BUTTON", "advancedButton", "optionBtns");
+advancedButton.textContent = "Advanced";
+var grAdvBtn = el("DIV", "grooveAdvBtn", "groove");
 
-advancedButton.onclick = function() {
-	wordDistInput.style.visibility = 'hidden'
-	grooveElement2.style.visibility = 'hidden'
-	if (wordDistBtn.style.visibility == 'visible') {
-		wordDistBtn.style.visibility = 'hidden'
-		grWordDist.style.visibility = 'hidden'
-		regexBtn.style.visibility = 'hidden'
-		grRegex.style.visibility = 'hidden'
-		otherBtn.style.visibility = 'hidden'
-		grOther.style.visibility = 'hidden'
-		inputTag.setAttribute('placeholder', 'Find:')
+// Word-distance
+var wordDistBtn = el("BUTTON", "wordDistBtn", "optionBtns");
+wordDistBtn.textContent = "Word Distance";
+var grWordDist = el("DIV", "grWordDist", "groove");
+var wordDistInput = el("INPUT", "inputSearch2");
+wordDistInput.setAttribute("autocomplete", "off");
+wordDistInput.setAttribute("placeholder", "…and:");
+var groove2 = el("DIV", "groove2");
+
+// RegExp
+var regexBtn = el("BUTTON", "regexBtn", "optionBtns");
+regexBtn.textContent = "RegExp";
+var grRegex = el("DIV", "grRegex", "groove");
+
+// Other → Word Size / Find Email
+var otherBtn = el("BUTTON", "otherBtn", "optionBtns");
+otherBtn.textContent = "Other";
+var grOther = el("DIV", "grOther", "groove");
+var other1 = el("BUTTON", "other1", "optionBtns");
+other1.textContent = "Word Size";
+var other2 = el("BUTTON", "other2", "optionBtns");
+other2.textContent = "Find Email";
+
+// navigation pill: ‹  n / total  ›
+var navBox = el("DIV", "ctrlfackNav");
+var prevBtn = document.createElement("BUTTON");
+prevBtn.textContent = "‹";
+prevBtn.title = "Previous (Shift+Enter)";
+var counterEl = document.createElement("SPAN");
+counterEl.id = "ctrlfackCounter";
+counterEl.textContent = "0 / 0";
+var nextBtn = document.createElement("BUTTON");
+nextBtn.textContent = "›";
+nextBtn.title = "Next (Enter)";
+navBox.appendChild(prevBtn);
+navBox.appendChild(counterEl);
+navBox.appendChild(nextBtn);
+
+// "no results" chip
+var noResultsBox = el("DIV", "noResultsBox");
+noResultsBox.textContent = "No matches";
+
+// always-visible close button (so you never need to remember the shortcut)
+var closeBtn = el("BUTTON", "ctrlfackClose");
+closeBtn.textContent = "✕";
+closeBtn.title = "Close (Esc)";
+closeBtn.onclick = function () { closeUI(); };
+
+/* ===================================================== HIGHLIGHT ENGINE */
+
+function escapeRegExp(s) {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildRegex(query, caseSensitive, wholeWord) {
+	var pat = escapeRegExp(query);
+	if (wholeWord) pat = "\\b" + pat + "\\b";
+	return new RegExp(pat, "g" + (caseSensitive ? "" : "i"));
+}
+
+function parseRegexInput(str) {
+	var m = str.match(/^\/(.*)\/([a-z]*)$/i);
+	var pattern = m ? m[1] : str;
+	var flags = m ? m[2] : "";
+	if (flags.indexOf("g") === -1) flags += "g";
+	return new RegExp(pattern, flags);      // may throw on bad regex — caller guards
+}
+
+function clearHighlights() {
+	var marks = document.querySelectorAll("mark." + MARK_CLASS);
+	var parents = new Set();
+	for (var i = 0; i < marks.length; i++) {
+		var mk = marks[i], p = mk.parentNode;
+		if (!p) continue;
+		while (mk.firstChild) p.insertBefore(mk.firstChild, mk);
+		p.removeChild(mk);
+		parents.add(p);
+	}
+	parents.forEach(function (p) { try { p.normalize(); } catch (e) {} });
+	matches = [];
+	activeIndex = -1;
+}
+
+function wrapMatches(node, re) {
+	var text = node.nodeValue;
+	re.lastIndex = 0;
+	var ranges = [], m;
+	while ((m = re.exec(text)) !== null) {
+		if (m[0] === "") { re.lastIndex++; continue; }
+		ranges.push([m.index, m.index + m[0].length]);
+		if (!re.global) break;
+		if (matches.length + ranges.length >= MATCH_CAP) break;
+	}
+	if (!ranges.length) return;
+
+	var frag = document.createDocumentFragment();
+	var cursor = 0;
+	for (var i = 0; i < ranges.length; i++) {
+		var s = ranges[i][0], e = ranges[i][1];
+		if (s > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, s)));
+		var mk = document.createElement("mark");
+		mk.className = MARK_CLASS;
+		mk.textContent = text.slice(s, e);
+		frag.appendChild(mk);
+		matches.push(mk);
+		cursor = e;
+	}
+	if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+	node.parentNode.replaceChild(frag, node);
+}
+
+function highlightRegex(re) {
+	clearHighlights();
+	if (!re || !document.body) return 0;
+
+	var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+		acceptNode: function (node) {
+			if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+			var p = node.parentNode;
+			if (!p || p.nodeType !== 1) return NodeFilter.FILTER_REJECT;
+			if (p.closest("script,style,noscript,textarea,.autocomplete,mark." + MARK_CLASS))
+				return NodeFilter.FILTER_REJECT;
+			return NodeFilter.FILTER_ACCEPT;
+		}
+	});
+
+	var nodes = [], cur;
+	while ((cur = walker.nextNode())) nodes.push(cur);
+	for (var i = 0; i < nodes.length; i++) {
+		if (matches.length >= MATCH_CAP) break;
+		wrapMatches(nodes[i], re);
+	}
+	return matches.length;
+}
+
+/* ===================================================== NAVIGATION / UI */
+
+function updateCounter() {
+	counterEl.textContent = matches.length
+		? (Math.max(activeIndex, 0) + 1) + " / " + matches.length
+		: "0 / 0";
+}
+
+function goTo(i) {
+	if (!matches.length) return;
+	if (activeIndex >= 0 && matches[activeIndex]) matches[activeIndex].classList.remove(ACTIVE_CLASS);
+	activeIndex = ((i % matches.length) + matches.length) % matches.length;
+	var target = matches[activeIndex];
+	target.classList.add(ACTIVE_CLASS);
+	try { target.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" }); }
+	catch (e) { target.scrollIntoView(); }
+	updateCounter();
+}
+
+function nextMatch() { goTo(activeIndex + 1); }
+function prevMatch() { goTo(activeIndex - 1); }
+
+function showNoResults() { noResultsBox.style.visibility = "visible"; }
+function hideNoResults() { noResultsBox.style.visibility = "hidden"; }
+
+// shared post-search behaviour for find / regex / word-size / email
+function afterSearch() {
+	if (matches.length) {
+		hideNoResults();
+		navBox.style.display = "flex";
+		goTo(0);
 	} else {
-		resetAnimation('wordDistBtn')
-		resetAnimation('grWordDist')
-		wordDistBtn.style.visibility = 'visible'
-		grWordDist.style.visibility = 'visible'
-		wordDistBtn.style.animationName = 'appearFirstOption'
-		grWordDist.style.animationName = 'appearFirstOption'
-
-		// animations for the dropdown
-		setTimeout(() => {
-			resetAnimation('regexBtn')
-			resetAnimation('grRegex')	
-			regexBtn.style.visibility = 'visible'
-			grRegex.style.visibility = 'visible'
-			regexBtn.style.animationName = 'dropSecondOption'
-			grRegex.style.animationName = 'dropSecondOptionGroove'
-		}, 500)
-
-		setTimeout(() => {
-			resetAnimation('otherBtn')
-			resetAnimation('grOther')
-			otherBtn.style.visibility = 'visible'
-			grOther.style.visibility = 'visible'
-			otherBtn.style.animationName = 'dropThirdOption'
-			grOther.style.animationName = 'dropThirdOptionGroove'
-		}, 1000)
+		navBox.style.display = "none";
+		showNoResults();
 	}
+	updateCounter();
 }
 
-wordDistBtn.onclick = function() {
-	resetAnimation('inputSearch2')
-	resetAnimation('groove2')
-	regexBox.style.visibility = 'hidden'
-	noResultsBox.style.visibility = 'hidden'
-	result1.setAttribute('hidden', '')
-	result2.setAttribute('hidden', '')
-	result3.setAttribute('hidden', '')
-	inputTag.value = ''
-	if (wordDistInput.style.visibility == 'visible') {
-		wordDistInput.style.visibility = 'hidden'
-		groove2.style.visibility = 'hidden'
-		resultsDropdownBtn.style.visibility = 'visible'
-		grResultsDropdownBtn.style.visibility = 'visible'
-		inputTag.setAttribute('placeholder', 'Find:')	
-	} else {
-		wordDistInput.style.visibility = 'visible'
-		groove2.style.visibility = 'visible'
-		resultsDropdownBtn.style.visibility = 'hidden'
-		grResultsDropdownBtn.style.visibility = 'hidden'
-		wordDistInput.style.animationName = 'appearSecondInput'
-		groove2.style.animationName = 'appearSecondInput'
-		wordDistPressed = 'true'
-		inputSearch2.focus()
-		inputSearch2.select()
-		inputTag.setAttribute('placeholder', 'WD:')
-	}
+/* ===================================================== SEARCH MODES */
+
+function find(query) {
+	lastQuery = query;
+	if (!query) { clearHighlights(); navBox.style.display = "none"; hideNoResults(); updateCounter(); return; }
+	highlightRegex(buildRegex(query, false, false));
+	afterSearch();
 }
 
-regexBtn.onclick = function() {
-	noResultsBox.style.visibility = 'hidden'
-	inputTag.focus()
-	inputTag.select()
-	inputTag.value = ''
-	inputTag.setAttribute('placeholder', 'RegExp:')
-	inputTag.setSelectionRange(1, 1)
-	wordDistInput.style.visibility = 'hidden'
-	groove2.style.visibility = 'hidden'
-	result1.setAttribute('hidden', '')
-	result2.setAttribute('hidden', '')
-	result3.setAttribute('hidden', '')
-	resultsDropdownBtn.style.visibility = 'visible'
-	grResultsDropdownBtn.style.visibility = 'visible'
-	regexPressed = 'true'
-	if (regexBox.style.visibility == 'visible') {
-		regexBox.style.visibility = 'hidden'
-		inputTag.setAttribute('placeholder', 'Find:')
+function regexSearch(str) {
+	var re;
+	try { re = parseRegexInput(str); }
+	catch (e) {
+		clearHighlights();
+		navBox.style.display = "none";
+		noResultsBox.textContent = "Invalid regex";
+		showNoResults();
+		return;
 	}
+	noResultsBox.textContent = "No matches";
+	highlightRegex(re);
+	afterSearch();
 }
 
-otherBtn.onclick = function() {
-	regexBox.style.visibility = 'hidden'
-	noResultsBox.style.visibility = 'hidden'
-	result1.setAttribute('hidden', '')
-	result2.setAttribute('hidden', '')
-	result3.setAttribute('hidden', '')
-	if (other1.style.visibility == 'visible') {
-		other1.setAttribute('hidden', '')
-		other2.setAttribute('hidden', '')
-	} else {
-		other1.removeAttribute('hidden')
-		other2.removeAttribute('hidden')
-	}
-	other1.style.visibility = 'visible'
-	other2.style.visibility = 'visible'
-}
-
-// word size function
-other1.onclick = function() {
-	inputTag.select()
-	inputTag.setAttribute('placeholder', 'WS:')
-}
-// find email function (not fully working)
-other2.onclick = function() {
-	var localTextArray = textTag.split(' ')
-	for (i = 0; i < localTextArray.length; i++) {
-		console.log(localTextArray)
-		if (localTextArray[i].match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/) && !localTextArray[i].includes('href')) {
-			console.log("email: " + localTextArray[i].match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/))
-			let email = localTextArray[i].substring(localTextArray[i].indexOf('>') + 1, localTextArray[i].indexOf('<'))
-				preString = localTextArray[i].substring(0, localTextArray[i].indexOf('>') + 1)
-				postString = localTextArray[i].substring(localTextArray[i].indexOf('<'))
-			console.log(preString, email, postString)
-			// localTextArray[i] = preString + "<mark class='marks'>"  + email + "</mark>" + postString
-			localTextArray[i] = "<mark class='marks'>"  + localTextArray[i].match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/) + "</mark>"
-		}
-	}
-	document.getElementsByTagName('body')[0].style.filter = 'blur(7px)'
-	searchResults.removeAttribute('hidden')
-	searchResults.innerHTML = localTextArray.join(' ')
-
-	if (document.getElementsByClassName('marks')[0] != undefined) {
-		let positonY = document.getElementsByClassName('marks')[0].getBoundingClientRect().bottom
-		searchResults.scrollTop = positonY -  250
-	}
-
-}
-// make it from ... to ... #nr of characters 
 function wordSize(size) {
-	noResultsBox.style.visibility = 'hidden'
-	var localTextArray = textTag.split(' ')
-	for (i = 0; i < localTextArray.length; i++) {
-		if (parseInt(size) == localTextArray[i].length && document.body.innerText.split(' ').includes(localTextArray[i])) {
-			localTextArray[i] = "<mark class='marks'>"  + localTextArray[i] + "</mark>"
-			console.log(parseInt(size), localTextArray[i].length, localTextArray[i])			
+	var n = parseInt(size, 10);
+	if (!n || n < 1) { clearHighlights(); navBox.style.display = "none"; return; }
+	highlightRegex(new RegExp("\\b\\w{" + n + "}\\b", "g"));
+	afterSearch();
+}
+
+function findEmails() {
+	highlightRegex(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g);
+	afterSearch();
+}
+
+function wordDistance(w1, w2) {
+	if (!w1 || !w2) return;
+	var re = new RegExp("\\b(" + escapeRegExp(w1) + "|" + escapeRegExp(w2) + ")\\b", "gi");
+	highlightRegex(re);
+	if (!matches.length) { navBox.style.display = "none"; showNoResults(); updateCounter(); return; }
+	hideNoResults();
+
+	// find the closest w1/w2 pair by their order in the document
+	var a = w1.toLowerCase(), b = w2.toLowerCase();
+	var idxA = [], idxB = [];
+	matches.forEach(function (mk, i) {
+		var t = mk.textContent.toLowerCase();
+		if (t === a) idxA.push(i);
+		else if (t === b) idxB.push(i);
+	});
+	var best = Infinity, bestStart = 0;
+	for (var i = 0; i < idxA.length; i++)
+		for (var j = 0; j < idxB.length; j++) {
+			var d = Math.abs(idxA[i] - idxB[j]);
+			if (d < best) { best = d; bestStart = Math.min(idxA[i], idxB[j]); }
 		}
-	}
-	document.getElementsByTagName('body')[0].style.filter = 'blur(7px)'
-	searchResults.removeAttribute('hidden')
-	searchResults.innerHTML = localTextArray.join(' ')
+	navBox.style.display = "flex";
+	goTo(bestStart);
 }
 
-var results = []
-	stringPosition = []
-function find(str) {
-	results = []
-	var localTextArray = textTag.split('')
-		occurrences = 0
-		cntr = 1
-	// add occurences feature
-	let	stringLocation = []
-	for (i = 0; i < localTextArray.length; i++) {
-		var potentialString
-		if (localTextArray[i] == str.substring(0, 1)) {
-			for (j = 0; j < str.length; j++) {
-				potentialString += localTextArray[i+j]
-			}
-			// console.log('1: ' + potentialString)
-			if (potentialString.length > str.length) {
-				potentialString = potentialString.substring(potentialString.length - str.length, potentialString.length)
-			}
-			if (potentialString == str) {
-				if (localTextArray[i-1] != '>' && localTextArray[i-1] != '_' && localTextArray[i-1] != '/') {
-					stringLocation.push(i + ', ' + (i+j))
-					localTextArray[i] = "<mark class='marks'>" + localTextArray[i]
-					localTextArray[i+j-1] = localTextArray[i+j-1] + "</mark>"
-					occurrences++
-				}
-			}
-		}
-		if (i == localTextArray.length - 1 && occurrences == 0) {
-			noResultsBox.style.visibility = 'visible'
-			resultsDropdownBtn.style.visibility = 'hidden'
-			grResultsDropdownBtn.style.visibility = 'hidden'
-			searchResults.style.visibility = 'hidden'
-			document.getElementsByTagName('body')[0].style.filter = 'blur(0px)'
-			inputTag.select()
-		} else {
-			resultsDropdownBtn.style.visibility = 'visible'
-			grResultsDropdownBtn.style.visibility = 'visible'
-			searchResults.style.visibility = 'visible'
-			document.getElementsByTagName('body')[0].style.filter = 'blur(7px)'
-		}
-	}
-	// add green highlight over the found words
-	result = ''
-	var breakStart = 0
-	for (i = 0; i < 3; i++) {
-		let	htmlTextArray = document.body.innerText.split(' ')
-		for (j = breakStart; j < htmlTextArray.length; j++) {
-			if (htmlTextArray[j] == str) {
-				result = htmlTextArray[j-3] + ' ' + htmlTextArray[j-2] + ' ' + htmlTextArray[j-1] +
-						 " <mark class='marks'>" + str + "</mark> " +
-						 htmlTextArray[j+1] + ' ' + htmlTextArray[j+2] + ' ' + htmlTextArray[j+3]
-				breakStart = j + 1
-				break
-			}
-		}
-		results.push(result)
-		result = ''
-	}
+/* ===================================================== OPEN / CLOSE */
 
-	searchResults.removeAttribute('hidden')
-	searchResults.innerHTML = localTextArray.join('')
-
-	c=0
-	while (c < occurrences-1 && document.getElementsByClassName('marks').length != 0) {
-		if (document.getElementsByClassName('marks')[c] != undefined) {
-			let elementPosition = document.getElementsByClassName('marks')[c].getBoundingClientRect()
-			stringPosition.push(elementPosition.top)
-		}
-		c++
-	}
-
-	if (result1.style.visibility == 'visible') {
-		console.log('pass')
-		showResults()
-	}
-	searchResults.scrollTop = stringPosition[0]
+function resetAnim(node, name) {
+	node.style.animation = "none";
+	void node.offsetHeight;                 // force reflow
+	node.style.animation = "";
+	if (name) node.style.animationName = name;
 }
 
-
-function wordDistance(word1, word2) {
-	noResultsBox.style.visibility = 'hidden'
-	let word1Location = []
-		word2Location = []
-		shortestWordDistance = []
-		localTextArray = textTag.split('')
-	// first word	
-	for (i = 0; i < localTextArray.length; i++) {
-		if (localTextArray[i] == word1.substring(0, 1)) {
-			var potentialString
-			for (j = 0; j < word1.length; j++) {
-				potentialString += localTextArray[i+j]
-			}
-			if (potentialString.length > word1.length) {
-				potentialString = potentialString.substring(potentialString.length - word1.length, potentialString.length)
-			}
-			if (potentialString == word1) {
-				if (localTextArray[i-1] != '>' && localTextArray[i-1] != '_' && localTextArray[i-1] != '/') {
-					let wordlength = parseInt(i) + parseInt(word1.length -1)
-					word1Location.push(i + "," + wordlength)
-				}
-			}
-		}
-	}
-	// second word
-	for (i = 0; i < localTextArray.length; i++) {
-		if (localTextArray[i] == word2.substring(0, 1)) {
-			var potentialString
-			for (j = 0; j < word2.length; j++) {
-				potentialString += localTextArray[i+j]
-			}
-			if (potentialString.length > word2.length) {
-				potentialString = potentialString.substring(potentialString.length - word2.length, potentialString.length)
-			}
-			if (potentialString == word2) {
-				if (localTextArray[i-1] != '>' && localTextArray[i-1] != '_' && localTextArray[i-1] != '/') {
-					let wordlength = parseInt(i) + parseInt(word2.length -1)
-					word2Location.push(i + "," + wordlength)
-				}
-			}
-		}
-	} 
-	let lowestDistance
-		closestWordsIndex = []
-	for (i = 0; i < word1Location.length; i++) {
-		for (j = 0; j < word2Location.length; j++) {
-			if (word1Location[i] != null && word2Location[j] != null) {
-				let d1 = word1Location[i].split(',')[0]
-					d2 = word2Location[j].split(',')[0]
-
-				var distance = Math.abs(d1-d2)
-				if (distance < Math.min(...shortestWordDistance) || i > 1000) {
-					lowestDistance = distance
-					closestWordsIndex[0] = word1Location[i]
-					closestWordsIndex[1] = word2Location[j]
-					console.log(word1Location[i], word1Location[j])
-					console.log('current lowest distance: ' + lowestDistance)
-				} 
-				shortestWordDistance.push(distance)
-			}
-		}
-	}
-
-	// its possible to implement a dropdown list for the 1st, 2nd 3rd ... pair of words
-	// similarly for find()
-	if (closestWordsIndex[0] == undefined) {
-		noResultsBox.style.visibility = 'visible'
-		wordDistInput.style.visibility = 'hidden'
-		grooveElement2.style.visibility = 'hidden'
-		// noResultsBox.style.top = '115px'
-		// noResultsBox.style.left = '300px'
-	} else {
-		let start1 = closestWordsIndex[0].split(',')[0]
-			end1 = closestWordsIndex[0].split(',')[1]
-			start2 = closestWordsIndex[1].split(',')[0]
-			end2 = closestWordsIndex[1].split(',')[1]
-
-			localTextArray[start1] = "<mark class='marks'>" + localTextArray[start1]
-			localTextArray[end1] = localTextArray[end1] + "</mark>"
-		
-			localTextArray[start2] = "<mark class='marks'>" + localTextArray[start2]
-			localTextArray[end2] = localTextArray[end2] + "</mark>"
-		
-			// show the results and blur the background
-			document.getElementsByTagName('body')[0].style.filter = 'blur(7px)'
-			searchResults.removeAttribute('hidden')
-			searchResults.innerHTML = localTextArray.join('')
-		
-			// scroll to the position of the words
-			let positonY = document.getElementsByClassName('marks')[0].getBoundingClientRect().bottom
-			searchResults.scrollTop = positonY -  250
-	}
-
-}
-
-
-function regex(text, re) {
-	//remove marks from WD
-	let flags = re.split('/')[2]
-	re = re.split('/')[1]
-	console.log(flags)
-	let r = new RegExp(re, flags)
-	    rBoolean = text.match(r)
-	regexBox.style.visibility = 'visible'
-	noResultsBox.style.visibility = 'hidden'
-	if (rBoolean) {
-		regexBox.innerHTML = '<b>RegExp Results</b><br><br>RegExp is true for <i>' + re			
-		if (flags.includes('i') && flags.includes('g')) {
-			let caps = 0
-			for (i = 0; i < rBoolean.length; i++) {
-				if (rBoolean[i].charAt(0) == rBoolean[i].charAt(0).toUpperCase()) {
-					caps++
-				}
-			}
-			regexBox.innerHTML += ' </i><br><i>' + caps + '</i> strings where found with a capital letter'
-		}
-		if (flags.includes('g')) {
-			regexBox.innerHTML += ' </i><br><i>' + rBoolean.length + '</i> occurrences were found'
-		}
-	} else {
-		regexBox.innerHTML = '<b>RegExp Results</b><br><br>The given RegExp returns false'
+function refreshSuggestions() {
+	var illegal = ".,/;<>\\:\"()*&^%$#@!-[]";
+	var seen = Object.create(null);
+	wordSuggestions = [];
+	var words = (document.body ? document.body.innerText : "").toLowerCase().split(/\s+/);
+	for (var i = 0; i < words.length; i++) {
+		var w = words[i];
+		if (!w || seen[w]) continue;
+		if (illegal.indexOf(w.slice(-1)) !== -1) continue;
+		seen[w] = true;
+		wordSuggestions.push({ label: w, value: "-" });
 	}
 }
 
-function wordLocationFinder(text, wordLocation) {
-	// i, i+j -> string 
-	var	word = ""
-	if (wordLocation != null) {
-		let start = wordLocation.split(',')[0]
-		    end = wordLocation.split(',')[1]
+function hideOptions() {
+	[wordDistBtn, grWordDist, regexBtn, grRegex, otherBtn, grOther,
+	 wordDistInput, groove2, noResultsBox].forEach(function (n) { n.style.visibility = "hidden"; });
+	[other1, other2].forEach(function (n) { n.style.visibility = "hidden"; n.setAttribute("hidden", ""); });
+	navBox.style.display = "none";
+}
 
-		for (k = start; k < (+end + +1); k++) {
-			word += text[k]
-		}
+function openUI() {
+	if (uiOpen) return;
+	uiOpen = true;
+	refreshSuggestions();
+
+	input.setAttribute("placeholder", "Find:");
+	input.value = "";
+	lastQuery = null;
+
+	input.style.visibility = "visible";        resetAnim(input, "appearSearch");
+	groove.style.visibility = "visible";       resetAnim(groove, "appearSearch");
+	advancedButton.style.visibility = "visible"; resetAnim(advancedButton, "appearSearch");
+	grAdvBtn.style.visibility = "visible";     resetAnim(grAdvBtn, "appearSearch");
+	closeBtn.style.visibility = "visible";
+
+	input.focus();
+	input.select();
+}
+
+function closeUI() {
+	if (!uiOpen) return;
+	uiOpen = false;
+	clearHighlights();
+	hideOptions();
+	closeBtn.style.visibility = "hidden";
+
+	input.style.animationName = "disappearSearch";
+	groove.style.animationName = "disappearSearch";
+	advancedButton.style.animationName = "disappearSearch";
+	grAdvBtn.style.animationName = "disappearSearch";
+	setTimeout(function () {
+		if (uiOpen) return;
+		input.style.visibility = "hidden";
+		groove.style.visibility = "hidden";
+		advancedButton.style.visibility = "hidden";
+		grAdvBtn.style.visibility = "hidden";
+	}, 600);
+	input.blur();
+}
+
+function toggleUI() { uiOpen ? closeUI() : openUI(); }
+
+/* ===================================================== EVENT WIRING */
+
+// Keyboard trigger — handled right here in the content script (no background
+// page that can be unloaded when idle), so it stays reliable on Firefox and
+// Chrome alike. Default: Ctrl/Cmd + Shift + F.
+document.addEventListener("keydown", function (e) {
+	if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.code === "KeyF") {
+		e.preventDefault();
+		e.stopPropagation();
+		toggleUI();
 	}
-	return word
-}
+}, true);
 
+// also toggle on a custom window event (used for testing / page integrations)
+window.addEventListener("ctrlfack-toggle", toggleUI);
 
-// not called yet because it does not work
-function removeMark(text) {
-	var occurrences = text.match(new RegExp('<mark', 'g')).length
-	for (i = 0; i < occurrences; i++) {
-		marks[i].style.backgroundColor = 'transparent'
-	}
-} 
+// global Esc to close
+document.addEventListener("keydown", function (e) {
+	if (e.key === "Escape" && uiOpen) closeUI();
+}, true);
 
+// main input: Enter runs / advances, Shift+Enter goes back
+input.addEventListener("keydown", function (e) {
+	if (e.key === "Escape") { closeUI(); return; }
+	if (e.key !== "Enter") return;
+	e.preventDefault();
 
-// results page mods
-searchResults.ondblclick = () => {
-	document.body.style.overflowY = 'visible'
-	document.getElementsByTagName('body')[0].style.filter = 'blur(0px)'
-	searchResults.setAttribute('hidden', '')
-	result1.setAttribute('hidden', '')
-	result2.setAttribute('hidden', '')
-	result3.setAttribute('hidden', '')
-	inputTag.focus()
-	inputTag.select()
-}
+	var mode = input.getAttribute("placeholder");
+	if (mode === "RegExp:") { regexSearch(input.value); return; }
+	if (mode === "WD:")     { wordDistance(input.value, wordDistInput.value); return; }
+	if (mode === "WS:")     { wordSize(input.value); return; }
 
-function showResults() {
-	noResultsBox.style.visibility = 'hidden'
-	regexBox.style.visibility = 'hidden'
-	console.log(results)
-	if (inputTag.value != '' && results.length != 0) {
-		console.log('pass')
-		resultsDropdownBtn.style.visibility = 'hidden'
-		grResultsDropdownBtn.style.visibility = 'hidden'
-
-		result1.removeAttribute('hidden')
-		result1.style.visibility = 'visible'
-		result1.innerHTML = results[0]
-		result2.removeAttribute('hidden')
-		result2.style.visibility = 'visible'
-		result2.innerHTML = results[1]
-		result3.removeAttribute('hidden')
-		result3.style.visibility = 'visible'
-		result3.innerHTML = results[2]
-	}
-}
-
-resultsDropdownBtn.onclick = () => {
-	showResults()
-}
-
-result1.onclick = () => {
-	var scrollPos = window.scrollY
-	searchResults.scrollBy(0, stringPosition[0] - searchResults.scrollTop)
-}
-
-result2.onclick = () => {
-	var scrollPos = window.scrollY
-	searchResults.scrollBy(0, stringPosition[1] - searchResults.scrollTop)
-}
-
-result3.onclick = () => {
-	var scrollPos = window.scrollY
-	searchResults.scrollBy(0, stringPosition[2] - searchResults.scrollTop)
-}
-
-
-
-// autocomplete
-
-var wordSuggestions = [ { label:'', value:''}]
-	siteText = document.body.innerText.toLowerCase().split(' ')
-	words = [... new Set(siteText)]
-	illegalChars = '.,/;<>\\:"()*&^%$#@!-[]'
-
-for (i = 0; i < words.length; i++) {
-	if (!illegalChars.split('').includes(words[i].slice(-1)) && !words[i].includes('\n')) {
-		wordSuggestions.push({
-			label: words[i],
-			value: '-'
-		})		
-	}
-}
-
-autocomplete({
-    input: inputTag,
-    fetch: function(text, update) {
-        text = inputTag.value.toLowerCase();
-        // you can also use AJAX requests instead of preloaded data
-        var suggestions = wordSuggestions.filter(n => n.label.toLowerCase().startsWith(text))
-        update(suggestions);
-    },
-    onSelect: function(item) {
-        input.value = item.label;
-    }
+	// Find mode: re-run on a new query, otherwise step through matches
+	if (input.value !== lastQuery || matches.length === 0) find(input.value);
+	else if (e.shiftKey) prevMatch();
+	else nextMatch();
 });
+
+wordDistInput.addEventListener("keydown", function (e) {
+	if (e.key === "Escape") { closeUI(); return; }
+	if (e.key === "Enter") { e.preventDefault(); wordDistance(input.value, wordDistInput.value); }
+});
+
+prevBtn.onclick = prevMatch;
+nextBtn.onclick = nextMatch;
+
+/* ---- Advanced options reveal (staggered, matches the glass animations) ---- */
+advancedButton.onclick = function () {
+	wordDistInput.style.visibility = "hidden";
+	groove2.style.visibility = "hidden";
+	if (wordDistBtn.style.visibility === "visible") {
+		[wordDistBtn, grWordDist, regexBtn, grRegex, otherBtn, grOther, other1, other2]
+			.forEach(function (n) { n.style.visibility = "hidden"; });
+		input.setAttribute("placeholder", "Find:");
+		return;
+	}
+	resetAnim(wordDistBtn, "appearFirstOption");
+	resetAnim(grWordDist, "appearFirstOption");
+	wordDistBtn.style.visibility = "visible";
+	grWordDist.style.visibility = "visible";
+
+	setTimeout(function () {
+		resetAnim(regexBtn, "dropSecondOption");
+		resetAnim(grRegex, "dropSecondOptionGroove");
+		regexBtn.style.visibility = "visible";
+		grRegex.style.visibility = "visible";
+	}, 250);
+	setTimeout(function () {
+		resetAnim(otherBtn, "dropThirdOption");
+		resetAnim(grOther, "dropThirdOptionGroove");
+		otherBtn.style.visibility = "visible";
+		grOther.style.visibility = "visible";
+	}, 500);
+};
+
+wordDistBtn.onclick = function () {
+	other1.style.visibility = other2.style.visibility = "hidden";
+	input.value = "";
+	if (wordDistInput.style.visibility === "visible") {
+		wordDistInput.style.visibility = "hidden";
+		groove2.style.visibility = "hidden";
+		input.setAttribute("placeholder", "Find:");
+	} else {
+		resetAnim(wordDistInput, "appearSecondInput");
+		resetAnim(groove2, "appearSecondInput");
+		wordDistInput.style.visibility = "visible";
+		groove2.style.visibility = "visible";
+		wordDistInput.value = "";
+		input.setAttribute("placeholder", "WD:");
+		input.focus();
+	}
+};
+
+regexBtn.onclick = function () {
+	wordDistInput.style.visibility = "hidden";
+	groove2.style.visibility = "hidden";
+	other1.style.visibility = other2.style.visibility = "hidden";
+	input.value = "";
+	input.setAttribute("placeholder", input.getAttribute("placeholder") === "RegExp:" ? "Find:" : "RegExp:");
+	input.focus();
+};
+
+otherBtn.onclick = function () {
+	var show = other1.style.visibility !== "visible";
+	other1.style.visibility = other2.style.visibility = show ? "visible" : "hidden";
+	if (show) { other1.removeAttribute("hidden"); other2.removeAttribute("hidden"); }
+};
+
+other1.onclick = function () {
+	input.setAttribute("placeholder", "WS:");
+	input.value = "";
+	input.focus();
+};
+
+other2.onclick = function () { findEmails(); };
+
+/* ===================================================== AUTOCOMPLETE */
+
+if (typeof autocomplete === "function") {
+	autocomplete({
+		input: input,
+		minLength: 1,
+		fetch: function (text, update) {
+			var t = input.value.toLowerCase();
+			// only suggest for plain find, not regex / word-size modes
+			if (input.getAttribute("placeholder") !== "Find:") { update([]); return; }
+			update(wordSuggestions.filter(function (n) { return n.label.indexOf(t) === 0; }).slice(0, 8));
+		},
+		onSelect: function (item) { input.value = item.label; input.focus(); }
+	});
+}
+
+})();

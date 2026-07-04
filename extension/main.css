@@ -27,13 +27,21 @@
 	                   "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
-/* ---- inline search highlights (cheap, no blur — there can be many) ---- */
-.marks {
-	visibility: visible;
-	background-color: rgba(52, 211, 153, 0.4);
-	box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.35);
+/* ---- inline search highlights on the live page (cheap, no blur) ---- */
+mark.ctrlfack-mark {
+	background-color: rgba(52, 211, 153, 0.45) !important;
+	color: inherit !important;
 	border-radius: 3px;
-	color: inherit;
+	box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.4);
+	padding: 0 1px;
+}
+
+/* the one match the user is currently on */
+mark.ctrlfack-mark-active {
+	background-color: rgba(255, 179, 0, 0.85) !important;
+	color: #1f2733 !important;
+	box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.7),
+	            0 0 10px rgba(245, 158, 11, 0.5);
 }
 
 /* ------------------------------ inputs ------------------------------ */
@@ -83,14 +91,14 @@
 #groove,
 #groove2 {
 	width: 240px;
-	height: 2px;
+	height: 1px;
 	position: fixed;
-	top: 98px;                 /* input bottom is 100px — straddle that edge */
+	top: 99px;                 /* input bottom is 100px — sit on that edge */
 	border-radius: 2px;
 	background: linear-gradient(90deg, transparent,
-	            var(--cf-accent) 35%, var(--cf-accent) 65%, transparent);
-	box-shadow: 0 0 12px 1px rgba(56, 189, 248, 0.4);
-	opacity: 0.85;
+	            var(--cf-accent) 42%, var(--cf-accent) 58%, transparent);
+	box-shadow: 0 0 8px 0 rgba(56, 189, 248, 0.28);
+	opacity: 0.55;
 	visibility: hidden;
 	z-index: 101;
 	animation-duration: 1s;
@@ -100,12 +108,12 @@
 
 .groove {
 	width: 120px;
-	height: 2px;
+	height: 1px;
 	border-radius: 2px;
 	background: linear-gradient(90deg, transparent,
-	            var(--cf-accent) 35%, var(--cf-accent) 65%, transparent);
-	box-shadow: 0 0 10px 1px rgba(56, 189, 248, 0.38);
-	opacity: 0.85;
+	            var(--cf-accent) 42%, var(--cf-accent) 58%, transparent);
+	box-shadow: 0 0 7px 0 rgba(56, 189, 248, 0.26);
+	opacity: 0.55;
 	visibility: hidden;
 	z-index: 101;
 	animation-duration: 1s;
@@ -158,96 +166,82 @@
 #other1 { position: fixed; top: 170px; left: 300px; }
 #other2 { position: fixed; top: 200px; left: 300px; }
 
-/* --------------------- occurrence dropdown button --------------------- */
-#resultsDropdownBtn {
+/* ----------------------------- close button ----------------------------- */
+/* Sits at the right edge of the search box; always available while open. */
+#ctrlfackClose {
 	position: fixed;
-	top: 70px;
-	left: 300px;
-	width: 40px;
-	height: 32px;
-	border-radius: 12px;
-	background: var(--cf-glass) !important;
-	-webkit-backdrop-filter: var(--cf-blur-light);
-	backdrop-filter: var(--cf-blur-light);
-	animation-duration: 1s;
-	visibility: hidden;
-}
-#grResultsDropdownBtn {
-	position: fixed;
-	top: 100px;
-	left: 300px;
-	width: 40px;
-	animation-duration: 1s;
-	visibility: hidden;
-}
-
-/* ---------------------- occurrence preview cards ---------------------- */
-#result1,
-#result2,
-#result3 {
-	width: 250px;
-	height: 40px;
-	z-index: 30;
-	border-radius: var(--cf-radius);
-	box-shadow: var(--cf-shadow), var(--cf-inset);
-	padding: 8px 12px;
-	overflow: hidden;
-	line-height: 1.3;
-}
-#result1 { position: fixed; top: 75px;  left: 310px; }
-#result2 { position: fixed; top: 135px; left: 310px; }
-#result3 { position: fixed; top: 195px; left: 310px; }
-
-/* --------------------------- results overlay --------------------------- */
-/* The page <body> is already blurred by search.js (filter: blur), so only
-   a light backdrop blur is layered here to keep the GPU cost down.        */
-#searchResults {
-	width: 90%;
-	height: 90%;
-	overflow-y: auto;
-	position: absolute;
-	left: 5%;
-	top: 5%;
-	padding: 28px;
-	box-sizing: border-box;
-	color: var(--cf-text);
-	background: var(--cf-glass-strong);
-	-webkit-backdrop-filter: var(--cf-blur-light);
-	backdrop-filter: var(--cf-blur-light);
-	border: 1px solid var(--cf-border);
-	border-radius: 22px;
-	box-shadow: 0 20px 60px rgba(15, 23, 42, 0.28), var(--cf-inset);
-	scrollbar-width: thin;
-	scrollbar-color: rgba(56, 189, 248, 0.6) transparent;
-}
-#searchResults::-webkit-scrollbar { width: 10px; }
-#searchResults::-webkit-scrollbar-thumb {
-	background: rgba(56, 189, 248, 0.5);
-	border-radius: 8px;
-	border: 2px solid transparent;
-	background-clip: content-box;
-}
-
-/* ----------------------------- info boxes ----------------------------- */
-#regexBox {
-	position: fixed;
-	top: 70px;
-	left: 350px;
-	width: 250px;
-	height: auto;
-	padding: 14px 16px;
+	top: 74px;
+	left: 262px;
+	width: 22px;
+	height: 22px;
+	z-index: 102;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: none;
+	outline: none;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.35);
 	color: var(--cf-text);
 	font-family: var(--cf-font);
-	background: var(--cf-glass-strong);
-	-webkit-backdrop-filter: var(--cf-blur);
-	backdrop-filter: var(--cf-blur);
-	border: 1px solid var(--cf-border);
-	border-radius: var(--cf-radius);
-	box-shadow: var(--cf-shadow), var(--cf-inset);
+	font-size: 12px;
+	line-height: 1;
+	cursor: pointer;
 	visibility: hidden;
-	z-index: 31;
+	transition: background 0.15s ease;
+}
+#ctrlfackClose:hover { background: rgba(255, 120, 120, 0.75); color: #fff; }
+#ctrlfackClose:active { transform: translateY(1px); }
+
+/* ----------------------- match navigation pill ----------------------- */
+/* Glass pill next to the search box: ‹  n / total  › */
+#ctrlfackNav {
+	position: fixed;
+	top: 70px;
+	left: 300px;
+	z-index: 100;
+	display: none;                 /* JS switches to flex when there are matches */
+	align-items: center;
+	gap: 2px;
+	height: 32px;
+	padding: 0 6px;
+	box-sizing: border-box;
+	color: var(--cf-text);
+	font-family: var(--cf-font);
+	background: var(--cf-glass);
+	-webkit-backdrop-filter: var(--cf-blur-light);
+	backdrop-filter: var(--cf-blur-light);
+	border: 1px solid var(--cf-border);
+	border-radius: 12px;
+	box-shadow: var(--cf-shadow), var(--cf-inset);
 }
 
+#ctrlfackCounter {
+	min-width: 56px;
+	text-align: center;
+	padding: 0 4px;
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+#ctrlfackNav button {
+	width: 24px;
+	height: 24px;
+	border: none;
+	outline: none;
+	background: transparent;
+	color: var(--cf-text);
+	font-size: 17px;
+	line-height: 1;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: background 0.15s ease;
+}
+#ctrlfackNav button:hover { background: rgba(255, 255, 255, 0.45); }
+#ctrlfackNav button:active { transform: translateY(1px); }
+
+/* ------------------------------ info box ------------------------------ */
 #noResultsBox {
 	position: fixed;
 	top: 70px;
