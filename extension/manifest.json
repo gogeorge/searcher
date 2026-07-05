@@ -1,8 +1,10 @@
 {
 	"manifest_version": 3,
 	"name": "ctrlFACK — Advanced Find",
-	"description": "Advanced in-page text search: find, word distance, regex and word size. Open with Ctrl+Z.",
-	"version": "0.3",
+	"description": "Advanced in-page find: match-case, whole-word, multi-term, fuzzy, scoped search, scrollbar markers, extract emails/phones/URLs, regex, word distance. Open with Ctrl+Shift+F.",
+	"version": "0.8",
+
+	"permissions": ["storage"],
 
 	"content_scripts": [
 		{

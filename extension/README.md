@@ -1,16 +1,46 @@
 # ctrlFACK — Advanced Find
 
-An advanced in-page text search injected as a content script. Open it on any
-page with **Ctrl + Z**, then press it again to close.
+An advanced in-page text search injected as a content script.
 
-Features: plain find (with autocomplete + occurrence previews), word distance,
-regex, word size, and find-email. Matches are highlighted and shown in a
-frosted results overlay.
+- **Open / close:** `Ctrl + Shift + F` (`Cmd + Shift + F` on macOS). Close with the
+  same shortcut, `Esc`, or the **✕** button on the search box. (`Ctrl + Z` no longer
+  opens it — it collided with Undo.) The shortcut is handled inside the content
+  script, so there's no background page to go idle.
+- **Navigate matches:** `Enter` = next, `Shift + Enter` = previous, or the `‹ ›`
+  buttons. A live `n / total` counter shows your position; the current match is
+  highlighted in amber, the rest in green.
+- **Scrollbar markers:** a gutter on the right edge shows a tick for every match
+  (amber for the current one) plus a viewport indicator — click a tick to jump.
+- **Copy `⧉`:** copies the matched lines to the clipboard (or, in an Extract
+  mode, the matched emails/phones/URLs).
+- **History:** recent searches (`↻`) are remembered and offered in the dropdown.
+
+Matches are highlighted **directly on the live page**. The engine builds a
+whole-page text index, so phrases match **across element boundaries**
+(`qu<b>ick</b> brown` still matches "quick brown") while never crossing a
+paragraph/block boundary. Painting uses the **CSS Custom Highlight API** when
+the browser supports it — zero DOM mutation, fast on huge pages, and safe on
+React/Vue-managed sites — and falls back to cross-node `<mark>` wrapping on
+older browsers (e.g. Firefox before the Highlight API shipped).
+
+### Search powers (options pill next to the box)
+- **`Aa` Match case** and **`W` Whole word** — classic find toggles; re-run live.
+- **Multi-term OR** — type comma-separated terms (`fox, dog, cat`) to highlight
+  them all at once, each term in its own colour. (No comma = normal phrase find.)
+- **`~` Fuzzy** — typo-tolerant matching (edit-distance, e.g. `color` also finds
+  `colour`, `receive` finds `recieve`).
+- **Scope** — click to cycle **All → Selection → Links → Headings → Code**.
+  Selection searches only within text you highlighted before opening the bar.
+
+### Advanced modes (via the Advanced button)
+Word distance, regex (highlights the actual matches), word size, and the extract
+utilities — **Extract Emails / Phones / URLs** (use the `⧉` button to copy them).
 
 ## Loading the extension
 
-This is a single **Manifest V3** build that works in both browsers. The code
-uses no `chrome.*` / `browser.*` APIs, so the same folder loads everywhere.
+This is a single **Manifest V3** build that works in both browsers. It uses a
+tiny background script only to receive the keyboard shortcut; the same folder
+loads everywhere.
 
 ### Chrome / Edge / Brave
 1. Go to `chrome://extensions`
