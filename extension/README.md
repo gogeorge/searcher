@@ -9,12 +9,27 @@ An advanced in-page text search injected as a content script.
 - **Navigate matches:** `Enter` = next, `Shift + Enter` = previous, or the `‹ ›`
   buttons. A live `n / total` counter shows your position; the current match is
   highlighted in amber, the rest in green.
+- **Scrollbar markers:** a gutter on the right edge shows a tick for every match
+  (amber for the current one) plus a viewport indicator — click a tick to jump.
+- **Copy `⧉`:** copies the matched lines to the clipboard (or, in an Extract
+  mode, the matched emails/phones/URLs).
+- **History:** recent searches (`↻`) are remembered and offered in the dropdown.
 
 Matches are highlighted **directly on the live page** (via DOM range wrapping),
 so the page stays interactive and dynamic content works — no blurred overlay.
 
-Features: plain find (with autocomplete), word distance, regex (highlights the
-actual matches), word size, and find-email.
+### Search powers (options pill next to the box)
+- **`Aa` Match case** and **`W` Whole word** — classic find toggles; re-run live.
+- **Multi-term OR** — type comma-separated terms (`fox, dog, cat`) to highlight
+  them all at once, each term in its own colour. (No comma = normal phrase find.)
+- **`~` Fuzzy** — typo-tolerant matching (edit-distance, e.g. `color` also finds
+  `colour`, `receive` finds `recieve`).
+- **Scope** — click to cycle **All → Selection → Links → Headings → Code**.
+  Selection searches only within text you highlighted before opening the bar.
+
+### Advanced modes (via the Advanced button)
+Word distance, regex (highlights the actual matches), word size, and the extract
+utilities — **Extract Emails / Phones / URLs** (use the `⧉` button to copy them).
 
 ## Loading the extension
 

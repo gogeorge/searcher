@@ -36,9 +36,17 @@ mark.ctrlfack-mark {
 	padding: 0 1px;
 }
 
-/* the one match the user is currently on */
-mark.ctrlfack-mark-active {
-	background-color: rgba(255, 179, 0, 0.85) !important;
+/* multi-term OR: each comma-separated term gets its own colour */
+mark.ctrlfack-t0 { background-color: rgba(52, 211, 153, 0.5) !important; }   /* green  */
+mark.ctrlfack-t1 { background-color: rgba(96, 165, 250, 0.5) !important; }   /* blue   */
+mark.ctrlfack-t2 { background-color: rgba(244, 114, 182, 0.5) !important; }  /* pink   */
+mark.ctrlfack-t3 { background-color: rgba(45, 212, 191, 0.5) !important; }   /* teal   */
+mark.ctrlfack-t4 { background-color: rgba(167, 139, 250, 0.5) !important; }  /* purple */
+mark.ctrlfack-t5 { background-color: rgba(129, 140, 248, 0.5) !important; }  /* indigo */
+
+/* the one match the user is currently on (extra specificity so it always wins) */
+mark.ctrlfack-mark.ctrlfack-mark-active {
+	background-color: rgba(255, 179, 0, 0.9) !important;
 	color: #1f2733 !important;
 	box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.7),
 	            0 0 10px rgba(245, 158, 11, 0.5);
@@ -165,6 +173,8 @@ mark.ctrlfack-mark-active {
 
 #other1 { position: fixed; top: 170px; left: 300px; }
 #other2 { position: fixed; top: 200px; left: 300px; }
+#other3 { position: fixed; top: 230px; left: 300px; }
+#other4 { position: fixed; top: 260px; left: 300px; }
 
 /* ----------------------------- close button ----------------------------- */
 /* Sits at the right edge of the search box; always available while open. */
@@ -194,11 +204,56 @@ mark.ctrlfack-mark-active {
 #ctrlfackClose:hover { background: rgba(255, 120, 120, 0.75); color: #fff; }
 #ctrlfackClose:active { transform: translateY(1px); }
 
-/* ----------------------- match navigation pill ----------------------- */
-/* Glass pill next to the search box: ‹  n / total  › */
-#ctrlfackNav {
+/* --------------------- search-power options pill --------------------- */
+/* [Aa] [W] [~] [scope] — sits to the right of the search box, Find mode only */
+#ctrlfackOpts {
 	position: fixed;
 	top: 70px;
+	left: 300px;
+	z-index: 100;
+	display: none;                 /* JS switches to flex in Find mode */
+	align-items: center;
+	gap: 3px;
+	height: 32px;
+	padding: 0 5px;
+	box-sizing: border-box;
+	font-family: var(--cf-font);
+	background: var(--cf-glass);
+	-webkit-backdrop-filter: var(--cf-blur-light);
+	backdrop-filter: var(--cf-blur-light);
+	border: 1px solid var(--cf-border);
+	border-radius: 12px;
+	box-shadow: var(--cf-shadow), var(--cf-inset);
+}
+
+#ctrlfackOpts .ctrlfack-opt {
+	height: 24px;
+	min-width: 26px;
+	padding: 0 6px;
+	border: none;
+	outline: none;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--cf-text);
+	font-family: var(--cf-font);
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1;
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+#ctrlfackOpts .ctrlfack-opt:hover { background: rgba(255, 255, 255, 0.45); }
+#ctrlfackOpts .ctrlfack-opt.on {
+	background: rgba(56, 189, 248, 0.85);
+	color: #06283d;
+}
+#ctrlfackOpts .ctrlfack-scope { min-width: 46px; }   /* holds the scope label */
+
+/* ----------------------- match navigation pill ----------------------- */
+/* Glass pill under the search box: ‹  n / total  › */
+#ctrlfackNav {
+	position: fixed;
+	top: 110px;
 	left: 300px;
 	z-index: 100;
 	display: none;                 /* JS switches to flex when there are matches */
@@ -240,11 +295,29 @@ mark.ctrlfack-mark-active {
 }
 #ctrlfackNav button:hover { background: rgba(255, 255, 255, 0.45); }
 #ctrlfackNav button:active { transform: translateY(1px); }
+#ctrlfackNav .ctrlfack-copy { font-size: 14px; }   /* the ⧉ copy button */
+
+/* --------------------- scrollbar match markers --------------------- */
+/* Canvas gutter on the right edge; ticks show where matches are. */
+#ctrlfackMarkers {
+	position: fixed;
+	top: 0;
+	right: 0;
+	width: 14px;
+	height: 100vh;
+	z-index: 2147483000;
+	display: none;
+	cursor: pointer;
+	background: rgba(15, 23, 42, 0.06);
+}
+
+/* -------------------- search-history dropdown item -------------------- */
+.autocomplete .ctrlfack-hist { opacity: 0.85; font-style: italic; }
 
 /* ------------------------------ info box ------------------------------ */
 #noResultsBox {
 	position: fixed;
-	top: 70px;
+	top: 110px;
 	left: 300px;
 	width: 240px;
 	height: 30px;
