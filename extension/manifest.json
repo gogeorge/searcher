@@ -2,7 +2,7 @@
 	"manifest_version": 3,
 	"name": "ctrlFACK — Advanced Find",
 	"description": "Advanced in-page find: match-case, whole-word, multi-term, fuzzy, scoped search, scrollbar markers, extract emails/phones/URLs, regex, word distance. Open with Ctrl+Shift+F.",
-	"version": "0.6",
+	"version": "0.8",
 
 	"permissions": ["storage"],
 

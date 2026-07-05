@@ -15,8 +15,13 @@ An advanced in-page text search injected as a content script.
   mode, the matched emails/phones/URLs).
 - **History:** recent searches (`↻`) are remembered and offered in the dropdown.
 
-Matches are highlighted **directly on the live page** (via DOM range wrapping),
-so the page stays interactive and dynamic content works — no blurred overlay.
+Matches are highlighted **directly on the live page**. The engine builds a
+whole-page text index, so phrases match **across element boundaries**
+(`qu<b>ick</b> brown` still matches "quick brown") while never crossing a
+paragraph/block boundary. Painting uses the **CSS Custom Highlight API** when
+the browser supports it — zero DOM mutation, fast on huge pages, and safe on
+React/Vue-managed sites — and falls back to cross-node `<mark>` wrapping on
+older browsers (e.g. Firefox before the Highlight API shipped).
 
 ### Search powers (options pill next to the box)
 - **`Aa` Match case** and **`W` Whole word** — classic find toggles; re-run live.
