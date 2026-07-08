@@ -56,6 +56,25 @@ loads everywhere.
 > the add-on must be signed via [addons.mozilla.org](https://addons.mozilla.org).
 > The `browser_specific_settings.gecko.id` in the manifest is already set for that.
 
+## Whisper Mode (search two tabs at once)
+
+Put two browser windows **side-by-side on the same screen** (e.g. docs on the
+left, reference on the right). A floating **"🔊 Whisper mode"** button appears.
+Click it and the two tabs pair up:
+
+- **One search, both tabs.** Type in either search bar and both tabs search at
+  once. Each tab highlights *its own* matches in *its own* colour (left = green,
+  right = blue), so it's always clear which result is on which tab.
+- **Combined counter** shows both totals, colour-coded: `◧ 1/4 · ◨ 7`.
+- **Results panel** lists matches from *both* tabs, colour-coded; click a row in
+  the other tab's section and that tab scrolls to it.
+- **Move the card:** the `⇄ tab` button sends the results panel to the other tab.
+
+It works across **different websites** — the tabs talk through the extension's
+background worker over a long-lived port (which also keeps the worker alive, so
+it won't idle-drop). Detection uses window screen coordinates, so it can misfire
+with unusual multi-monitor / fullscreen arrangements.
+
 ## Known limitations
 
 - **PDFs don't work.** Neither the keyboard shortcut nor search functions inside

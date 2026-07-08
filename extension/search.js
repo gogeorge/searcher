@@ -61,6 +61,20 @@ var pinsMap = {};            // { origin: [query, ...] } cached from storage
 var sitePins = [];           // pins for this page's origin
 var panelOpen = false;       // results panel visibility
 
+// whisper mode (cross-tab) state
+var extApi = (typeof browser !== "undefined") ? browser
+           : (typeof chrome !== "undefined") ? chrome : null;
+var whisperPort = null;
+var partnerPresent = false;  // a side-by-side window exists
+var whisperActive = false;   // paired + jointly searching
+var mySide = null;           // "left" | "right"
+var myColorIdx = 0;          // highlight colour for this tab (0 green / 1 blue)
+var peerColorIdx = 1;
+var peerCount = 0;           // partner's match count
+var peerRows = [];           // partner's panel rows [{i,text,pre,post}]
+var suppressBroadcast = false;
+var lastGeom = null;
+
 /* ============================================================ UI ELEMENTS */
 
 function el(tag, id, cls) {
@@ -177,9 +191,14 @@ exportCsvBtn.title = "Export matches as CSV";
 var exportMdBtn = document.createElement("BUTTON");
 exportMdBtn.textContent = "MD";
 exportMdBtn.title = "Export matches as Markdown";
+var moveCardBtn = document.createElement("BUTTON");   // whisper: send panel to other tab
+moveCardBtn.textContent = "⇄ tab";
+moveCardBtn.title = "Move this results card to the other tab";
+moveCardBtn.style.display = "none";
 var panelCloseBtn = document.createElement("BUTTON");
 panelCloseBtn.textContent = "✕";
 panelHead.appendChild(panelTitle);
+panelHead.appendChild(moveCardBtn);
 panelHead.appendChild(exportJsonBtn);
 panelHead.appendChild(exportCsvBtn);
 panelHead.appendChild(exportMdBtn);
@@ -201,6 +220,10 @@ var closeBtn = el("BUTTON", "ctrlfackClose");
 closeBtn.textContent = "✕";
 closeBtn.title = "Close (Esc)";
 closeBtn.onclick = function () { closeUI(); };
+
+// floating "Whisper mode" button — appears when a side-by-side window is found
+var whisperBtn = el("BUTTON", "ctrlfackWhisper");
+whisperBtn.style.display = "none";
 
 /* ===================================================== HIGHLIGHT ENGINE */
 
@@ -541,12 +564,17 @@ function hlEnsure() {
 	CSS.highlights.set("ctrlfack-active", activeHl);
 }
 
+// in whisper mode every local match takes this tab's colour; otherwise per-term
+function colorIndexFor(m) {
+	return whisperActive ? myColorIdx : (m.ti % TERM_COLORS);
+}
+
 function hlApply() {
 	hlEnsure();
 	for (var i = 0; i < matches.length; i++) {
 		var m = matches[i];
 		m.range = makeRange(m);
-		termHls[m.ti % TERM_COLORS].add(m.range);
+		termHls[colorIndexFor(m)].add(m.range);
 	}
 }
 
@@ -563,7 +591,7 @@ function markApply() {
 			if (e > s) (perSeg[k] = perSeg[k] || []).push({ s: s, e: e, mi: mi });
 		}
 	}
-	var multi = currentTermsList.length > 1;
+	var multi = currentTermsList.length > 1 || whisperActive;
 	for (var k2 = 0; k2 < segs.length; k2++) {
 		var ops = perSeg[k2];
 		if (!ops) continue;
@@ -573,7 +601,7 @@ function markApply() {
 			var op = ops[i2], mm = matches[op.mi];
 			if (op.s > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, op.s)));
 			var mk = document.createElement("mark");
-			mk.className = MARK_CLASS + (multi ? " ctrlfack-t" + (mm.ti % TERM_COLORS) : "");
+			mk.className = MARK_CLASS + (multi ? " ctrlfack-t" + colorIndexFor(mm) : "");
 			mk.textContent = text.slice(op.s, op.e);
 			frag.appendChild(mk);
 			mm.marks.push(mk);
@@ -674,6 +702,22 @@ function highlightRegex(re) {
 /* ===================================================== NAVIGATION / UI */
 
 function updateCounter() {
+	if (whisperActive) {
+		// two colour-coded segments: this tab · the other tab
+		counterEl.textContent = "";
+		var mine = matches.length ? (Math.max(activeIndex, 0) + 1) + "/" + matches.length : "0";
+		var a = document.createElement("SPAN");
+		a.className = "ctrlfack-cc t" + myColorIdx;
+		a.textContent = (mySide === "right" ? "◨ " : "◧ ") + mine;
+		var sep = document.createElement("SPAN");
+		sep.className = "ctrlfack-cc-sep";
+		sep.textContent = "·";
+		var b = document.createElement("SPAN");
+		b.className = "ctrlfack-cc t" + peerColorIdx;
+		b.textContent = (mySide === "right" ? "◧ " : "◨ ") + peerCount;
+		counterEl.appendChild(a); counterEl.appendChild(sep); counterEl.appendChild(b);
+		return;
+	}
 	counterEl.textContent = matches.length
 		? (Math.max(activeIndex, 0) + 1) + " / " + matches.length
 		: "0 / 0";
@@ -965,7 +1009,7 @@ function panelRow(i) {
 	var pre = document.createElement("SPAN");
 	pre.textContent = ctx.pre;
 	var mid = document.createElement("SPAN");
-	mid.className = "ctrlfack-row-match t" + (m.ti % TERM_COLORS);
+	mid.className = "ctrlfack-row-match t" + colorIndexFor(m);
 	mid.textContent = m.text;
 	var post = document.createElement("SPAN");
 	post.textContent = ctx.post;
@@ -983,11 +1027,35 @@ function renderPanelChunk() {
 
 function renderPanel() {
 	if (!panelOpen) return;
-	panelTitle.textContent = "Results — " + matches.length;
+	panelTitle.textContent = "Results — " +
+		(whisperActive ? (matches.length + " + " + peerCount) : matches.length);
 	renderPanelStats();
 	panelList.textContent = "";
 	panelRendered = 0;
 	renderPanelChunk();
+	if (whisperActive) renderPeerRows();
+}
+
+// the partner tab's matches, listed below ours and coloured as the other tab
+function renderPeerRows() {
+	if (!peerRows.length) return;
+	var head = document.createElement("DIV");
+	head.className = "ctrlfack-peerhead t" + peerColorIdx;
+	head.textContent = "other tab (" + (mySide === "left" ? "right" : "left") + ") — " + peerCount;
+	panelList.appendChild(head);
+	var frag = document.createDocumentFragment();
+	peerRows.forEach(function (r) {
+		var row = document.createElement("DIV");
+		row.className = "ctrlfack-row ctrlfack-peerrow";
+		row.setAttribute("data-peer", r.i);
+		var pre = document.createElement("SPAN"); pre.textContent = r.pre;
+		var mid = document.createElement("SPAN");
+		mid.className = "ctrlfack-row-match t" + peerColorIdx; mid.textContent = r.text;
+		var post = document.createElement("SPAN"); post.textContent = r.post;
+		row.appendChild(pre); row.appendChild(mid); row.appendChild(post);
+		frag.appendChild(row);
+	});
+	panelList.appendChild(frag);
 }
 
 function syncPanelActive() {
@@ -1012,13 +1080,20 @@ panelList.addEventListener("scroll", function () {
 
 panelList.addEventListener("click", function (e) {
 	var row = e.target && e.target.closest(".ctrlfack-row");
-	if (row) goTo(+row.getAttribute("data-i"));
+	if (!row) return;
+	if (row.hasAttribute("data-peer")) {
+		// jump to a match in the OTHER tab — it scrolls/highlights over there
+		sendPeer({ k: "activate", index: +row.getAttribute("data-peer") });
+	} else {
+		goTo(+row.getAttribute("data-i"));
+	}
 });
 
 function setPanelOpen(open) {
 	panelOpen = open;
 	panelBox.style.display = open ? "flex" : "none";
 	panelBtn.classList.toggle("on", open);
+	moveCardBtn.style.display = (open && whisperActive) ? "" : "none";
 	if (open) renderPanel();
 }
 panelBtn.onclick = function () { setPanelOpen(!panelOpen); };
@@ -1238,6 +1313,7 @@ function find(query, opts) {
 	if (isBooleanQuery(query)) {
 		booleanSearch(query, opts);
 		updatePinState();
+		whisperBroadcast(query, opts);
 		return;
 	}
 
@@ -1249,6 +1325,7 @@ function find(query, opts) {
 		hideNoResults();
 		drawMarkers();
 		updateCounter();
+		whisperBroadcast(query, opts);
 		return;
 	}
 	// diacritic-folded terms: cafe finds café (and vice versa)
@@ -1262,6 +1339,7 @@ function find(query, opts) {
 	highlightWith(finder, true);           // search the folded text layer
 	if (!opts.quiet) afterSearch();
 	updatePinState();
+	whisperBroadcast(query, opts);
 }
 
 // re-run the current Find when a search-power toggle changes
@@ -1585,6 +1663,195 @@ other1.onclick = function () {
 other2.onclick = function () { extract("email"); };
 other3.onclick = function () { extract("phone"); };
 other4.onclick = function () { extract("url"); };
+
+/* ===================================================== WHISPER MODE (cross-tab)
+
+   Transport is a long-lived port to background.js. The background tells us when
+   a side-by-side window exists (→ show the button) and relays "peer" messages
+   to the paired tab. Joint search: typing broadcasts the query so both tabs
+   search; each tab paints its own matches in its own colour; the counter and
+   results panel show both tabs' totals, colour-coded. Both windows are visible
+   at once, so "jumping" to the other tab's match just scrolls it there — no
+   focus stealing needed. */
+
+function myGeom() {
+	return {
+		x: window.screenX, y: window.screenY,
+		w: window.outerWidth, h: window.outerHeight,
+		sl: screen.availLeft || 0, st: screen.availTop || 0,
+		sw: screen.availWidth, sh: screen.availHeight,
+		vis: document.visibilityState === "visible"
+	};
+}
+
+function geomChanged(a, b) {
+	return !a || !b || a.x !== b.x || a.y !== b.y || a.w !== b.w || a.h !== b.h ||
+	       a.vis !== b.vis || a.sl !== b.sl || a.sw !== b.sw;
+}
+
+function reportGeom(force) {
+	if (!whisperPort) return;
+	var g = myGeom();
+	if (force || geomChanged(g, lastGeom)) {
+		lastGeom = g;
+		try { whisperPort.postMessage({ t: "geom", geom: g }); } catch (e) {}
+	}
+}
+
+function connectWhisper() {
+	if (!extApi || !extApi.runtime || !extApi.runtime.connect) return;
+	try { whisperPort = extApi.runtime.connect({ name: "ctrlfack" }); }
+	catch (e) { whisperPort = null; return; }
+	if (!whisperPort) return;
+
+	whisperPort.onMessage.addListener(onPortMessage);
+	whisperPort.onDisconnect.addListener(function () {
+		whisperPort = null;
+		partnerPresent = false;
+		if (whisperActive) setWhisperActive(false);
+		updateWhisperButton();
+		setTimeout(connectWhisper, 1000);   // background recycled — reconnect
+	});
+	lastGeom = null;
+	reportGeom(true);
+}
+
+function onPortMessage(msg) {
+	if (!msg) return;
+	if (msg.t === "partner") {
+		partnerPresent = msg.present;
+		if (msg.present) {
+			mySide = msg.side;
+			myColorIdx = msg.color;
+			peerColorIdx = msg.color === 0 ? 1 : 0;
+		} else if (whisperActive) {
+			setWhisperActive(false);
+		}
+		updateWhisperButton();
+	} else if (msg.t === "whisper") {
+		setWhisperActive(msg.on);
+	} else if (msg.t === "partner-gone") {
+		partnerPresent = false;
+		setWhisperActive(false);
+		updateWhisperButton();
+	} else if (msg.t === "peer") {
+		onPeer(msg.data);
+	}
+}
+
+function sendPeer(data) {
+	if (whisperPort) { try { whisperPort.postMessage({ t: "peer", data: data }); } catch (e) {} }
+}
+
+function requestWhisper(on) {
+	if (whisperPort) { try { whisperPort.postMessage({ t: "whisper", on: on }); } catch (e) {} }
+}
+
+function currentFlags() {
+	return { cs: caseSensitive, ww: wholeWord, fz: fuzzy, st: stemming, sc: scope };
+}
+
+function applyFlags(f) {
+	if (!f) return;
+	caseSensitive = !!f.cs; wholeWord = !!f.ww; fuzzy = !!f.fz; stemming = !!f.st; scope = f.sc || "all";
+	caseBtn.classList.toggle("on", caseSensitive);
+	wordBtn.classList.toggle("on", wholeWord);
+	fuzzyBtn.classList.toggle("on", fuzzy);
+	stemBtn.classList.toggle("on", stemming);
+	scopeBtn.textContent = SCOPE_LABELS[scope];
+	scopeBtn.classList.toggle("on", scope !== "all");
+}
+
+// compact list of our matches for the partner's combined panel (capped)
+function peerRowsPayload() {
+	var out = [], cap = Math.min(matches.length, 120);
+	for (var i = 0; i < cap; i++) {
+		var m = matches[i], c = panelContext(m);
+		out.push({ i: i, text: m.text, pre: c.pre, post: c.post });
+	}
+	return out;
+}
+
+// after any local find while whispering: (maybe) broadcast the query, and
+// always send our fresh count + rows so the partner's combined view updates
+function whisperBroadcast(query, opts) {
+	if (!whisperActive) return;
+	if (!opts.fromPeer && !suppressBroadcast)
+		sendPeer({ k: "query", q: query, flags: currentFlags() });
+	sendPeer({ k: "count", n: matches.length, rows: peerRowsPayload() });
+	updateCounter();
+	if (panelOpen) renderPanel();
+}
+
+function onPeer(data) {
+	if (!data) return;
+	if (data.k === "query") {
+		applyFlags(data.flags);
+		suppressBroadcast = true;
+		if (!uiOpen) openUI();
+		input.value = data.q;
+		setMode("Find:");
+		find(data.q, { fromPeer: true, noHistory: true });
+		suppressBroadcast = false;
+		sendPeer({ k: "count", n: matches.length, rows: peerRowsPayload() });
+	} else if (data.k === "count") {
+		peerCount = data.n || 0;
+		if (data.rows) peerRows = data.rows;
+		updateCounter();
+		if (panelOpen) renderPanel();
+	} else if (data.k === "activate") {
+		if (data.index >= 0 && data.index < matches.length) {
+			if (!uiOpen) openUI();
+			goTo(data.index);
+		}
+	} else if (data.k === "openPanel") {
+		peerRows = data.rows || peerRows;
+		if (!uiOpen) openUI();
+		if (!panelOpen) setPanelOpen(true); else renderPanel();
+	}
+}
+
+function updateWhisperButton() {
+	whisperBtn.style.display = partnerPresent ? "block" : "none";
+	whisperBtn.classList.toggle("on", whisperActive);
+	whisperBtn.textContent = whisperActive ? "🔇 Stop whisper" : "🔊 Whisper mode";
+}
+
+function setWhisperActive(on) {
+	if (whisperActive === on) return;
+	whisperActive = on;
+	var root = document.documentElement;
+	root.classList.toggle("ctrlfack-whisper", on);
+	root.classList.toggle("ctrlfack-left", on && mySide === "left");
+	root.classList.toggle("ctrlfack-right", on && mySide === "right");
+	updateWhisperButton();
+	moveCardBtn.style.display = (panelOpen && whisperActive) ? "" : "none";
+
+	if (on) {
+		if (!uiOpen) openUI();
+		if (input.value) find(input.value, { noHistory: true });   // re-run so my matches recolour + broadcast
+		else { updateCounter(); }
+	} else {
+		peerCount = 0; peerRows = [];
+		if (uiOpen && input.value) find(input.value, { noHistory: true });   // recolour back to normal
+		else updateCounter();
+		if (panelOpen) renderPanel();
+	}
+}
+
+whisperBtn.onclick = function () { requestWhisper(!whisperActive); };
+moveCardBtn.onclick = function () {
+	sendPeer({ k: "openPanel", rows: peerRowsPayload() });
+	setPanelOpen(false);
+};
+
+// geometry reporting: on connect, resize, tab show/hide, and a slow poll
+// (dragging a window doesn't fire "resize", so we must poll screenX/Y)
+window.addEventListener("resize", function () { reportGeom(false); });
+window.addEventListener("focus", function () { reportGeom(false); });
+document.addEventListener("visibilitychange", function () { reportGeom(true); });
+setInterval(function () { reportGeom(false); }, 1200);
+connectWhisper();
 
 /* ===================================================== AUTOCOMPLETE + HISTORY */
 

@@ -527,3 +527,58 @@ mark.ctrlfack-mark.ctrlfack-mark-active {
 	border-radius: 8px;
 	cursor: pointer;
 }
+
+/* ============================ WHISPER MODE (cross-tab) ============================ */
+
+/* floating button that appears when a side-by-side window is detected */
+#ctrlfackWhisper {
+	position: fixed;
+	top: 14px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 2147483000;
+	padding: 7px 16px;
+	border: 1px solid var(--cf-border);
+	border-radius: 999px;
+	font-family: var(--cf-font);
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--cf-text);
+	background: var(--cf-glass-strong);
+	-webkit-backdrop-filter: var(--cf-blur);
+	backdrop-filter: var(--cf-blur);
+	box-shadow: var(--cf-shadow), var(--cf-inset);
+	cursor: pointer;
+	transition: transform 0.12s ease, background 0.15s ease;
+}
+#ctrlfackWhisper:hover { background: rgba(255, 255, 255, 0.8); }
+#ctrlfackWhisper:active { transform: translateX(-50%) translateY(1px); }
+#ctrlfackWhisper.on {
+	background: rgba(56, 189, 248, 0.85);
+	color: #06283d;
+}
+
+/* a thin coloured hairline down the window edge marks which tab you're on */
+:root.ctrlfack-whisper.ctrlfack-left  body { box-shadow: inset 4px 0 0 rgba(52, 211, 153, 0.7); }
+:root.ctrlfack-whisper.ctrlfack-right body { box-shadow: inset -4px 0 0 rgba(96, 165, 250, 0.7); }
+
+/* combined counter: two colour-coded segments */
+.ctrlfack-cc { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ctrlfack-cc.t0 { color: #0f9d6b; }
+.ctrlfack-cc.t1 { color: #2563eb; }
+.ctrlfack-cc-sep { opacity: 0.45; margin: 0 5px; }
+
+/* the other tab's rows in the results panel */
+.ctrlfack-peerhead {
+	margin: 8px 4px 4px;
+	padding: 3px 8px;
+	font-size: 11px;
+	font-weight: 700;
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.4);
+}
+.ctrlfack-peerhead.t1 { color: #2563eb; }
+.ctrlfack-peerhead.t0 { color: #0f9d6b; }
+.ctrlfack-peerrow { opacity: 0.95; }
+
+/* "⇄ tab" move-card button reuses the panel-head button look (defined above) */
