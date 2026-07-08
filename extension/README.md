@@ -56,6 +56,22 @@ loads everywhere.
 > the add-on must be signed via [addons.mozilla.org](https://addons.mozilla.org).
 > The `browser_specific_settings.gecko.id` in the manifest is already set for that.
 
+## Known limitations
+
+- **PDFs don't work.** Neither the keyboard shortcut nor search functions inside
+  a PDF opened in the browser's built-in viewer (web *or* local). This is a
+  browser restriction, not a bug: both Chrome and Firefox treat the PDF viewer
+  as privileged UI and **refuse to inject extension content scripts into it**,
+  and the PDF text isn't in the page DOM anyway (it's a plugin/canvas). No
+  content-script extension can reach it. The only way to support PDFs is to
+  bundle a PDF engine (pdf.js) and open PDFs in the extension's own viewer — a
+  large, separate feature. See Firefox bug 1454760.
+- **Local files** (`file://`) require granting file access: in Chrome, toggle
+  *"Allow access to file URLs"* on the extension's details page. This only helps
+  local **HTML** pages — local PDFs are still subject to the limitation above.
+- Text inside **closed shadow DOM** and **cross-origin iframes** is unreachable
+  (browser security boundaries).
+
 ## UI theme
 
 The interface uses a GPU-conscious "liquid glass" style: `backdrop-filter`

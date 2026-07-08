@@ -23,6 +23,8 @@
 	--cf-text:         #1f2733;
 	--cf-accent:       rgba(56, 189, 248, 0.85);
 	--cf-radius:       14px;
+	--cf-anim-dur:     0.3s;
+	--cf-anim-ease:    cubic-bezier(0.22, 0.61, 0.36, 1);   /* ease-out */
 	--cf-font:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
 	                   "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
@@ -87,7 +89,9 @@ mark.ctrlfack-mark.ctrlfack-mark-active {
 	font-weight: 400;
 	font-size: 16px;
 	visibility: hidden;
-	animation-duration: 1s;
+	animation-duration: var(--cf-anim-dur);
+	animation-timing-function: var(--cf-anim-ease);
+	animation-fill-mode: both;
 	transition: box-shadow 0.25s ease, background 0.25s ease;
 }
 
@@ -123,7 +127,9 @@ mark.ctrlfack-mark.ctrlfack-mark-active {
 	opacity: 0.55;
 	visibility: hidden;
 	z-index: 101;
-	animation-duration: 1s;
+	animation-duration: var(--cf-anim-dur);
+	animation-timing-function: var(--cf-anim-ease);
+	animation-fill-mode: both;
 }
 #groove  { left: 50px; }
 #groove2 { left: 300px; z-index: 100; }
@@ -138,7 +144,9 @@ mark.ctrlfack-mark.ctrlfack-mark-active {
 	opacity: 0.55;
 	visibility: hidden;
 	z-index: 101;
-	animation-duration: 1s;
+	animation-duration: var(--cf-anim-dur);
+	animation-timing-function: var(--cf-anim-ease);
+	animation-fill-mode: both;
 }
 
 /* ------------------------- option buttons ------------------------- */
@@ -157,7 +165,9 @@ mark.ctrlfack-mark.ctrlfack-mark-active {
 	-webkit-backdrop-filter: var(--cf-blur-light);
 	backdrop-filter: var(--cf-blur-light);
 	box-shadow: var(--cf-shadow), var(--cf-inset);
-	animation-duration: 1s;
+	animation-duration: var(--cf-anim-dur);
+	animation-timing-function: var(--cf-anim-ease);
+	animation-fill-mode: both;
 	z-index: 100;
 	cursor: pointer;
 	transition: background 0.2s ease, transform 0.1s ease;
@@ -447,42 +457,40 @@ mark.ctrlfack-mark.ctrlfack-mark-active {
 }
 
 /* ------------------------------ keyframes ------------------------------ */
-/* Unchanged — search.js drives these by name. */
+/* Driven by name from search.js. Transform + opacity only — GPU-composited,
+   no layout thrash, so elements animate in place without moving the page. */
 @keyframes appearSearch {
-	from { left: 0px; }
-	to   { left: 50px; }
+	from { opacity: 0; transform: translateY(-8px); }
+	to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes disappearSearch {
-	from { left: 50px; }
-	to   { left: -300px; }
+	from { opacity: 1; transform: translateY(0); }
+	to   { opacity: 0; transform: translateY(-6px); }
 }
+/* every revealed option / groove uses the same gentle fade-drop */
 @keyframes appearFirstOption {
-	from { left: 50px; }
-	to   { left: 175px; }
+	from { opacity: 0; transform: translateY(-8px); }
+	to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes dropSecondOption {
-	from { top: 115px; }
-	to   { top: 143px; }
+	from { opacity: 0; transform: translateY(-8px); }
+	to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes dropThirdOption {
-	from { top: 141px; }
-	to   { top: 171px; }
+	from { opacity: 0; transform: translateY(-8px); }
+	to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes dropSecondOptionGroove {
-	from { top: 143px; }
-	to   { top: 165px; }
+	from { opacity: 0; transform: translateY(-8px); }
+	to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes dropThirdOptionGroove {
-	from { top: 171px; }
-	to   { top: 193px; }
+	from { opacity: 0; transform: translateY(-8px); }
+	to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes appearSecondInput {
-	from { left: 50px; }
-	to   { left: 300px; }
-}
-@keyframes showResultsOption {
-	from { opacity: 0; }
-	to   { opacity: 1; }
+	from { opacity: 0; transform: translateX(-10px); }
+	to   { opacity: 1; transform: translateX(0); }
 }
 
 /* --------------------------- autocomplete --------------------------- */

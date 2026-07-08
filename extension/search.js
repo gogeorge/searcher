@@ -1422,7 +1422,7 @@ function closeUI() {
 		groove.style.visibility = "hidden";
 		advancedButton.style.visibility = "hidden";
 		grAdvBtn.style.visibility = "hidden";
-	}, 600);
+	}, 320);   // matches the disappear animation (fill-mode holds it hidden meanwhile)
 	input.blur();
 }
 
@@ -1532,13 +1532,13 @@ advancedButton.onclick = function () {
 		resetAnim(grRegex, "dropSecondOptionGroove");
 		regexBtn.style.visibility = "visible";
 		grRegex.style.visibility = "visible";
-	}, 250);
+	}, 70);
 	setTimeout(function () {
 		resetAnim(otherBtn, "dropThirdOption");
 		resetAnim(grOther, "dropThirdOptionGroove");
 		otherBtn.style.visibility = "visible";
 		grOther.style.visibility = "visible";
-	}, 500);
+	}, 140);
 };
 
 wordDistBtn.onclick = function () {
@@ -1591,11 +1591,10 @@ other4.onclick = function () { extract("url"); };
 if (typeof autocomplete === "function") {
 	autocomplete({
 		input: input,
-		minLength: 0,
-		showOnFocus: true,
+		minLength: 1,          // only after typing — an empty-focus dropdown hid the Advanced button
 		fetch: function (text, update) {
-			// only in plain Find mode
-			if (input.getAttribute("placeholder") !== "Find:") { update([]); return; }
+			// only in plain Find mode, and never for an empty box
+			if (input.getAttribute("placeholder") !== "Find:" || !input.value) { update([]); return; }
 			var t = input.value.toLowerCase();
 
 			// pinned searches for this site (📌) come first
